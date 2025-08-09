@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS {{tables.document_chunks}} (
 
     created_at TIMESTAMPTZ DEFAULT NOW(),
 
-    UNIQUE(content_hash)  -- Prevent duplicate chunks
+    UNIQUE(document_id, content_hash)  -- Prevent duplicate chunks within a document
 );
 
 -- Embedding providers registry

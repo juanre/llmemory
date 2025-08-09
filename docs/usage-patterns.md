@@ -204,7 +204,7 @@ llmemory uses pgdbm's migration system with these key features:
 
 1. **Module-based tracking**: Migrations are tracked by module name (`aword_memory`)
 2. **Schema isolation**: Tables use `{{tables.tablename}}` syntax for schema awareness
-3. **Automatic execution**: Migrations run during `initialize()`
+3. **Automatic execution**: Migrations run during `initialize()` (single initial migration file)
 
 ### Migration Flow
 
@@ -233,7 +233,7 @@ await migration_manager.apply_pending()
 **Pattern 3 (Shared Pool):**
 - Creates tables in assigned schema
 - Example: `llmemory.documents`, `llmemory.document_chunks`
-- Migrations tracked in `public.schema_migrations` table with module_name
+- Migrations tracked in the assigned schema's `schema_migrations` with module_name
 
 ## Why This Architecture?
 

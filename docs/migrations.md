@@ -25,7 +25,7 @@ await memory.initialize()  # Runs migrations
 **What happens:**
 1. Creates tables in the default schema (usually `public`)
 2. Table names: `documents`, `document_chunks`, etc.
-3. Migration history tracked in `public.schema_migrations`
+3. Migration history tracked in the configured schema's `schema_migrations` table (or `public` if no schema is set)
 
 ### Pattern 2: Library Usage
 
@@ -58,7 +58,7 @@ await memory.initialize()  # Runs migrations in "llmemory" schema
 **What happens:**
 1. Creates tables in the assigned schema (e.g., `llmemory`)
 2. Table names: `llmemory.documents`, `llmemory.document_chunks`, etc.
-3. Migration history tracked in `public.schema_migrations` with module name
+3. Migration history tracked in the assigned schema's `schema_migrations` with the module name
 
 ## The Migration File
 
@@ -98,9 +98,11 @@ This ensures:
 
 ## Migration Tracking
 
-pgdbm tracks migrations in the `schema_migrations` table:
+pgdbm tracks migrations in a `schema_migrations` table created under the configured schema (or `public` when no schema is set). To inspect entries for llmemory's module:
 
 ```sql
+SELECT * FROM llmemory.schema_migrations WHERE module_name = 'aword_memory';
+-- Or, if no schema configured:
 SELECT * FROM public.schema_migrations WHERE module_name = 'aword_memory';
 ```
 
@@ -178,7 +180,7 @@ Error: Migration 001_complete_schema.sql has been modified after being applied
 **Solution**:
 1. Never modify already-applied migrations
 2. Create new migrations for schema changes
-3. In development, reset: `DELETE FROM schema_migrations WHERE module_name = 'aword_memory'`
+3. In development, reset: `DELETE FROM schema_migrations WHERE module_name = 'aword_memory'` (use the correct schema)
 
 ### Schema Not Found
 
@@ -186,9 +188,13 @@ Error: Migration 001_complete_schema.sql has been modified after being applied
 Error: schema "llmemory" does not exist
 ```
 
-**Solution**: Create schema before initializing:
+**Solution**: Create schema before initializing (or ensure the DB user can create it):
 ```sql
 CREATE SCHEMA IF NOT EXISTS llmemory;
 ```
 
 Or ensure the database user has `CREATE SCHEMA` permission.
+
+## Notes on Deduplication
+
+llmemory prevents duplicate chunks within a single document using a unique constraint on `(document_id, content_hash)`. Identical chunks across different documents or owners are allowed.
