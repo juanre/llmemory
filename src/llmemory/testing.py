@@ -28,7 +28,7 @@ async def memory_db(test_db_factory) -> AsyncGenerator[MemoryDatabase, None]:
     """Create a MemoryDatabase instance with test database.
 
     Args:
-        test_db_factory: The async-db-utils test database factory fixture
+        test_db_factory: The pgdbm-utils test database factory fixture
 
     Yields:
         MemoryDatabase: An initialized MemoryDatabase instance
@@ -138,7 +138,7 @@ async def memory_library(test_db_factory) -> AsyncGenerator[AwordMemory, None]:
     """Create AwordMemory instance for testing.
 
     Args:
-        test_db_factory: The async-db-utils test database factory fixture
+        test_db_factory: The pgdbm-utils test database factory fixture
 
     Yields:
         AwordMemory: An initialized AwordMemory instance

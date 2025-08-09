@@ -16,7 +16,7 @@ import os
 from typing import Dict, Any
 from datetime import datetime
 
-from async_db import AsyncDatabaseManager, DatabaseConfig
+from pgdbm import AsyncDatabaseManager, DatabaseConfig
 from llmemory import AwordMemory, DocumentType, SearchType
 
 # Import the library from Pattern 2 example

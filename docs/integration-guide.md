@@ -439,7 +439,7 @@ Date: {email_data['date']}
 
 ```python
 # Shared pool for multiple services
-from async_db import AsyncDatabaseManager, DatabaseConfig
+from pgdbm import AsyncDatabaseManager, DatabaseConfig
 from llmemory import AwordMemory
 
 class SharedMemoryPool:
@@ -449,7 +449,7 @@ class SharedMemoryPool:
         self.services = {}
 
     async def initialize(self):
-        # Create shared pool using async-db
+        # Create shared pool using pgdbm
         config = DatabaseConfig(connection_string=self.connection_string)
         self.pool = await AsyncDatabaseManager.create_shared_pool(config)
 

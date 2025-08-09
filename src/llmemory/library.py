@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Union
 from uuid import UUID
 
-from async_db import AsyncDatabaseManager
+from pgdbm import AsyncDatabaseManager
 
 from .batch_processor import (BackgroundEmbeddingProcessor,
                               BatchEmbeddingProcessor)

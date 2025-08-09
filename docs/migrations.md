@@ -4,7 +4,7 @@ This guide explains how llmemory handles database migrations in different deploy
 
 ## Overview
 
-llmemory uses async-db's migration system to manage its database schema. Key features:
+llmemory uses pgdbm's migration system to manage its database schema. Key features:
 
 - **Automatic execution**: Migrations run automatically during `initialize()`
 - **Module-based tracking**: Migrations are tracked as `aword_memory` module
@@ -62,7 +62,7 @@ await memory.initialize()  # Runs migrations in "llmemory" schema
 
 ## The Migration File
 
-llmemory's migration uses async-db's template syntax:
+llmemory's migration uses pgdbm's template syntax:
 
 ```sql
 -- Uses {{tables.}} prefix for schema awareness
@@ -98,7 +98,7 @@ This ensures:
 
 ## Migration Tracking
 
-async-db tracks migrations in the `schema_migrations` table:
+pgdbm tracks migrations in the `schema_migrations` table:
 
 ```sql
 SELECT * FROM public.schema_migrations WHERE module_name = 'aword_memory';

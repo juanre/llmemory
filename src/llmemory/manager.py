@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
-from async_db import AsyncDatabaseManager
+from pgdbm import AsyncDatabaseManager
 
 from .chunking import get_chunker
 from .db import MemoryDatabase, create_memory_db_manager

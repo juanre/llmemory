@@ -4,7 +4,7 @@
 -- Enable pgvector extension (requires superuser privileges)
 CREATE EXTENSION IF NOT EXISTS vector;
 
--- Documents table (using async-db template syntax for schema isolation)
+-- Documents table (using pgdbm template syntax for schema isolation)
 CREATE TABLE IF NOT EXISTS {{tables.documents}} (
     document_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id TEXT NOT NULL,       -- Owner identifier for filtering (e.g., workspace_id)

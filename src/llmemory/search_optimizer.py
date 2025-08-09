@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
-from async_db import AsyncDatabaseManager
+from pgdbm import AsyncDatabaseManager
 
 from .models import DocumentChunk, SearchQuery, SearchResult, SearchType
 

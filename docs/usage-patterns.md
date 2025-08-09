@@ -8,7 +8,7 @@ llmemory is designed as a **self-contained library** that:
 - Manages its own database schema and tables
 - Runs its own migrations automatically when initialized
 - Can work standalone or share a connection pool with other services
-- Uses async-db for schema isolation and migration management
+- Uses pgdbm for schema isolation and migration management
 
 ## The Three Usage Patterns
 
@@ -59,7 +59,7 @@ When a library uses llmemory internally (e.g., a "document-processor" library):
 # document_processor/processor.py
 from typing import Optional
 from llmemory import AwordMemory, DocumentType
-from async_db import AsyncDatabaseManager
+from pgdbm import AsyncDatabaseManager
 
 class DocumentProcessor:
     """A library that uses llmemory internally."""
@@ -127,7 +127,7 @@ When a final application (like task-engine) uses multiple services with a shared
 
 ```python
 # main.py - Final application
-from async_db import AsyncDatabaseManager, DatabaseConfig
+from pgdbm import AsyncDatabaseManager, DatabaseConfig
 from llmemory import AwordMemory
 from document_processor import DocumentProcessor  # From Pattern 2
 
@@ -198,9 +198,9 @@ app = FastAPI(lifespan=lifespan)
 
 ## How Migrations Work
 
-### The Magic of async-db
+### The Magic of pgdbm
 
-llmemory uses async-db's migration system with these key features:
+llmemory uses pgdbm's migration system with these key features:
 
 1. **Module-based tracking**: Migrations are tracked by module name (`aword_memory`)
 2. **Schema isolation**: Tables use `{{tables.tablename}}` syntax for schema awareness
@@ -281,7 +281,7 @@ No, and you shouldn't need to. llmemory needs its tables to function, and migrat
 
 ### Q: What about migration conflicts?
 
-async-db tracks migrations by module name, so multiple instances of llmemory will coordinate correctly. The first one runs migrations, others skip them.
+pgdbm tracks migrations by module name, so multiple instances of llmemory will coordinate correctly. The first one runs migrations, others skip them.
 
 ### Q: How do I handle migration permissions?
 

@@ -18,7 +18,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 from llmemory import AwordMemory, DocumentType, SearchType
-from async_db import AsyncDatabaseManager
+from pgdbm import AsyncDatabaseManager
 
 
 # === THE LIBRARY CODE ===
@@ -212,7 +212,7 @@ async def example_shared_pool_mode():
     """Example of using the library with a shared connection pool."""
     print("\n=== Pattern 2B: Library in Shared Pool Mode ===\n")
 
-    from async_db import DatabaseConfig
+    from pgdbm import DatabaseConfig
 
     # Parent application creates shared pool
     config = DatabaseConfig(

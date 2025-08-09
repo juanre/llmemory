@@ -36,8 +36,8 @@ dependencies = [
     "tiktoken>=0.5.0",
     "asyncpg>=0.30.0",
     "fast-langdetect>=0.2.0",
-    "async-db",
     "sentence-transformers>=4.1.0",
+    "pgdbm",
 ]
 
 [project.optional-dependencies]
@@ -152,4 +152,4 @@ skip_covered = false
 directory = "htmlcov"
 
 [tool.uv.sources]
-async-db = { path = "../async-db" }
+pgdbm = { path = "../pgdbm" }

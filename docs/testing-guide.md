@@ -18,7 +18,7 @@ In your test file or `conftest.py`, import the fixtures:
 
 ```python
 # conftest.py
-from async_db.fixtures.conftest import *  # Required for test_db_factory
+from pgdbm.fixtures.conftest import *  # Required for test_db_factory
 from llmemory.testing import *       # Memory service fixtures
 ```
 
@@ -49,7 +49,7 @@ from llmemory.testing import *       # Memory service fixtures
 ```python
 import pytest
 from llmemory.testing import *
-from async_db.fixtures.conftest import *
+from pgdbm.fixtures.conftest import *
 
 @pytest.mark.asyncio
 async def test_my_memory_integration(memory_library):
@@ -187,7 +187,7 @@ async def test_my_app(my_app_memory):
 If you encounter import errors:
 
 1. Ensure you have installed the test dependencies
-2. Make sure `async_db` fixtures are imported before `llmemory` fixtures
+2. Make sure `pgdbm` fixtures are imported before `llmemory` fixtures
 3. Check that your Python path includes the memory service package
 
 For more examples, see the memory service test suite in the `tests/` directory.

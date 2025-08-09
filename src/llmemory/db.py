@@ -1,4 +1,4 @@
-"""Async database integration for aword-memory using async-db-utils."""
+"""Async database integration for aword-memory using pgdbm-utils."""
 
 import hashlib
 import json
@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from async_db import (AsyncDatabaseManager, AsyncMigrationManager,
+from pgdbm import (AsyncDatabaseManager, AsyncMigrationManager,
                       DatabaseConfig, MonitoredAsyncDatabaseManager)
 
 logger = logging.getLogger(__name__)
