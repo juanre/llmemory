@@ -1,7 +1,7 @@
 """
 Pattern 3: Final Application with Shared Pool
 
-This example shows how a final application (like task-engine) uses llmemory
+This example shows how a final application (like agent-engine) uses llmemory
 along with other services, sharing a single connection pool for efficiency.
 
 Key characteristics:
@@ -48,22 +48,22 @@ class AuthService:
 
 
 class TaskService:
-    """Mock task management service."""
+    """Mock agent management service."""
 
     def __init__(self, db_manager: AsyncDatabaseManager):
         self.db = db_manager
         self._initialized = False
 
     async def initialize(self):
-        """Initialize task service (would run its own migrations)."""
+        """Initialize agent service (would run its own migrations)."""
         if not self._initialized:
             print("TaskService: Initializing...")
-            # In a real service, this would run task-specific migrations
+            # In a real service, this would run agent-specific migrations
             self._initialized = True
             print("TaskService: Ready")
 
     async def create_task(self, title: str, description: str) -> str:
-        """Mock task creation."""
+        """Mock agent creation."""
         return f"task_{datetime.now().timestamp()}"  # Mock implementation
 
 
@@ -76,7 +76,7 @@ class ProductivityApp:
 
     Services:
     - AuthService: User authentication
-    - TaskService: Task management
+    - TaskService: Agent management
     - DocumentAnalyzer: Document analysis (from Pattern 2)
     - AwordMemory: Direct document storage
     """
@@ -112,11 +112,11 @@ class ProductivityApp:
         print("\n2. Creating schema-isolated database managers...")
         db_managers = {
             "auth": AsyncDatabaseManager(pool=self.pool, schema="auth"),
-            "tasks": AsyncDatabaseManager(pool=self.pool, schema="tasks"),
+            "agents": AsyncDatabaseManager(pool=self.pool, schema="agents"),
             "analyzer": AsyncDatabaseManager(pool=self.pool, schema="analyzer"),
             "memory": AsyncDatabaseManager(pool=self.pool, schema="memory"),
         }
-        print("   ✓ Created managers for: auth, tasks, analyzer, memory")
+        print("   ✓ Created managers for: auth, agents, analyzer, memory")
 
         # 3. Initialize services with their database managers
         print("\n3. Initializing services...")
@@ -125,9 +125,9 @@ class ProductivityApp:
         self.services["auth"] = AuthService(db_managers["auth"])
         await self.services["auth"].initialize()
 
-        # Task service
-        self.services["tasks"] = TaskService(db_managers["tasks"])
-        await self.services["tasks"].initialize()
+        # Agent service
+        self.services["agents"] = TaskService(db_managers["agents"])
+        await self.services["agents"].initialize()
 
         # Document analyzer (library from Pattern 2)
         self.services["analyzer"] = DocumentAnalyzer(
@@ -161,8 +161,8 @@ class ProductivityApp:
         if not await self.services["auth"].verify_user(user_id):
             raise ValueError("Unauthorized user")
 
-        # 2. Create a task for the document
-        task_id = await self.services["tasks"].create_task(
+        # 2. Create a agent for the document
+        task_id = await self.services["agents"].create_task(
             title=f"Review: {title}", description=f"Review and process document: {title}"
         )
 
@@ -302,7 +302,7 @@ async def main():
         """,
     )
     print(f"   ✓ Created document: {doc_result['document_id']}")
-    print(f"   ✓ Created task: {doc_result['task_id']}")
+    print(f"   ✓ Created agent: {doc_result['task_id']}")
     print(f"   ✓ Analysis: {doc_result['analysis']}")
 
     # Wait for embeddings

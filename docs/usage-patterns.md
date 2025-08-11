@@ -123,7 +123,7 @@ class DocumentProcessor:
 
 ### Pattern 3: Used by a Final Application (Most Common)
 
-When a final application (like task-engine) uses multiple services with a shared connection pool:
+When a final application (like agent-engine) uses multiple services with a shared connection pool:
 
 ```python
 # main.py - Final application

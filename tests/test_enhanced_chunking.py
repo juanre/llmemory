@@ -36,12 +36,12 @@ class TestEnhancedChunking:
         ]
 
         # Process documents concurrently
-        tasks = []
+        agents = []
         for doc_data in documents:
-            task = memory_manager.process_document(**doc_data)
-            tasks.append(task)
+            agent = memory_manager.process_document(**doc_data)
+            agents.append(agent)
 
-        results = await asyncio.gather(*tasks)
+        results = await asyncio.gather(*agents)
 
         # Verify all documents were processed
         assert len(results) == 5
@@ -180,8 +180,8 @@ Detailed information about the topic.
         ]
 
         # Execute searches concurrently
-        tasks = [memory_manager.search(q) for q in queries]
-        results = await asyncio.gather(*tasks)
+        agents = [memory_manager.search(q) for q in queries]
+        results = await asyncio.gather(*agents)
 
         # Verify all searches completed
         assert len(results) == 3

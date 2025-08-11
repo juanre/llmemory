@@ -1,6 +1,6 @@
 """Search optimization for high-performance queries.
 
-Based on task-engine integration requirements:
+Based on agent-engine integration requirements:
 - Search latency < 100ms (p95)
 - API throughput: 1000 req/s
 - Concurrent query handling
@@ -648,11 +648,11 @@ class OptimizedAsyncSearch:
         """Pre-warm cache with common queries."""
         logger.info(f"Warming cache with {len(common_queries)} queries")
 
-        tasks = []
+        agents = []
         for query in common_queries:
-            task = asyncio.create_task(self.search(query))
-            tasks.append(task)
+            agent = asyncio.create_task(self.search(query))
+            agents.append(agent)
 
-        await asyncio.gather(*tasks, return_exceptions=True)
+        await asyncio.gather(*agents, return_exceptions=True)
 
         logger.info(f"Cache warm complete. Hit rate: {self.metrics.cache_hit_rate:.2%}")

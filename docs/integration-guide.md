@@ -541,7 +541,7 @@ class BatchProcessor:
             batch = documents[i:i + batch_size]
 
             # Process batch concurrently
-            tasks = [
+            agents = [
                 self.memory.add_document(
                     owner_id=workspace_id,
                     **doc
@@ -549,7 +549,7 @@ class BatchProcessor:
                 for doc in batch
             ]
 
-            batch_results = await asyncio.gather(*tasks)
+            batch_results = await asyncio.gather(*agents)
             results.extend(batch_results)
 
         return results

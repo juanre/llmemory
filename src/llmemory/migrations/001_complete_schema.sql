@@ -1,5 +1,5 @@
 -- Complete schema for aword-memory with pgvector support
--- Designed for integration with task-engine for document indexing and retrieval
+-- Designed for integration with agent-engine for document indexing and retrieval
 
 -- Enable pgvector extension (requires superuser privileges)
 CREATE EXTENSION IF NOT EXISTS vector;

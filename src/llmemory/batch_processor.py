@@ -1,6 +1,6 @@
 """Batch processing for embeddings with rate limiting and retry logic.
 
-Based on task-engine integration requirements:
+Based on agent-engine integration requirements:
 - Process up to 100 docs/minute throughput
 - Respect OpenAI rate limits (3000 RPM)
 - Implement retry logic with exponential backoff
@@ -313,7 +313,7 @@ class BatchEmbeddingProcessor:
 
 
 class BackgroundEmbeddingProcessor:
-    """Background task for continuous embedding processing."""
+    """Background agent for continuous embedding processing."""
 
     def __init__(
         self,
@@ -333,7 +333,7 @@ class BackgroundEmbeddingProcessor:
         self.poll_interval = poll_interval
         self.batch_timeout = batch_timeout
         self._running = False
-        self._task: Optional[asyncio.Task] = None
+        self._task: Optional[asyncio.Agent] = None
 
     async def start(
         self,

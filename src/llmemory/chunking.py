@@ -231,7 +231,7 @@ class HierarchicalChunker:
         """
         Get optimal chunking parameters based on document type and length.
 
-        Based on task-engine integration requirements:
+        Based on agent-engine integration requirements:
         - EMAIL: Small chunks for quick retrieval (300/150 tokens)
         - REPORT: Medium chunks for comprehensive content (600/300 tokens)
         - CODE: Larger chunks to preserve context (800/400 tokens)
@@ -244,7 +244,7 @@ class HierarchicalChunker:
         Returns:
             Dictionary with chunking parameters
         """
-        # Configurations from task-engine integration plan and design document
+        # Configurations from agent-engine integration plan and design document
         configs = {
             # Email: Quick retrieval of specific info
             DocumentType.EMAIL: {

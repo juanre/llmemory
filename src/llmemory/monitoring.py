@@ -201,11 +201,11 @@ def get_metrics_handler():
     return metrics_handler
 
 
-# Create a background task for periodic metrics collection
+# Create a background agent for periodic metrics collection
 async def metrics_collection_loop(
     system_metrics: SystemMetrics, db_pool=None, interval: int = 30
 ):
-    """Background task to collect system metrics periodically."""
+    """Background agent to collect system metrics periodically."""
     if not PROMETHEUS_AVAILABLE:
         return
 

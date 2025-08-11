@@ -81,7 +81,7 @@ class TestAsyncSearchPerformance:
                 generate_embeddings=False,  # Skip embeddings for speed
             )
 
-        # Create concurrent search tasks
+        # Create concurrent search agents
         async def run_search(query_id: int):
             start = time.time()
             results = await memory_library.search(
@@ -93,13 +93,13 @@ class TestAsyncSearchPerformance:
             return time.time() - start, len(results)
 
         # Run 50 concurrent searches
-        tasks = [run_search(i) for i in range(50)]
+        agents = [run_search(i) for i in range(50)]
         start_time = time.time()
-        results = await asyncio.gather(*tasks)
+        results = await asyncio.gather(*agents)
         total_time = time.time() - start_time
 
         # Calculate throughput
-        throughput = len(tasks) / total_time
+        throughput = len(agents) / total_time
 
         # Assert throughput meets requirements (aim for > 100 req/s)
         assert throughput > 100, f"Throughput {throughput:.1f} req/s below 100 req/s target"
