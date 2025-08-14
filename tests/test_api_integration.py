@@ -257,8 +257,8 @@ class TestAPIIntegration:
                 break
 
         # Verify we got all chunks
-        total_count = await memory_library.get_chunk_count(doc_id)
-        assert len(all_chunks) == total_count
+        total = await memory_library.get_chunk_count(doc_id)
+        assert len(all_chunks) == total
 
         # Verify no duplicates
         chunk_ids = [str(c.chunk_id) for c in all_chunks]

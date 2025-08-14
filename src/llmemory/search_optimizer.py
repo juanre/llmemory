@@ -15,6 +15,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
+import re
 from uuid import UUID
 
 from pgdbm import AsyncDatabaseManager
@@ -247,9 +248,30 @@ class OptimizedAsyncSearch:
             if METRICS_ENABLED:
                 active_searches.dec()
 
-    async def _optimized_vector_search(
-        self, query: SearchQuery
-    ) -> List[Dict[str, Any]]:
+    def _validate_identifier(self, name: str) -> None:
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]{0,62}$", name or ""):
+            raise ValueError(f"Invalid SQL identifier: {name}")
+
+    def _qualify_table_name(self, table_name: str) -> str:
+        self._validate_identifier(table_name)
+        if getattr(self.db, "schema", None) and self.db.schema != "public":
+            return f'"{self.db.schema}".{table_name}'
+        return table_name
+
+    async def _get_default_embedding_table(self) -> Optional[str]:
+        row = await self.db.fetch_one(
+            """
+            SELECT table_name
+            FROM {{tables.embedding_providers}}
+            WHERE is_default = true
+            LIMIT 1
+            """
+        )
+        if not row:
+            return None
+        return self._qualify_table_name(row["table_name"])  # type: ignore[index]
+
+    async def _optimized_vector_search(self, query: SearchQuery) -> List[Dict[str, Any]]:
         """
         Optimized vector search with performance enhancements.
 
@@ -258,8 +280,49 @@ class OptimizedAsyncSearch:
         - Selective column loading
         - Query parallelization
         """
-        # Build optimized query using HNSW index
-        base_query = """
+        embedding_table = await self._get_default_embedding_table()
+        if not embedding_table:
+            return []
+
+        filters: List[str] = []
+        params: List[Any] = []
+
+        embedding_vec = f"[{','.join(map(str, getattr(query, 'query_embedding', []) or []))}]"
+        params.append(embedding_vec)
+        params.append(query.owner_id)
+        next_param = 3
+
+        if query.metadata_filter:
+            filters.append(f"AND c.metadata @> ${next_param}::jsonb")
+            params.append(json.dumps(query.metadata_filter))
+            next_param += 1
+
+        if query.id_at_origins:
+            filters.append(f"AND d.id_at_origin = ANY(${next_param})")
+            params.append(query.id_at_origins)
+            next_param += 1
+
+        if query.date_from:
+            filters.append(f"AND d.document_date >= ${next_param}")
+            params.append(query.date_from)
+            next_param += 1
+
+        if query.date_to:
+            filters.append(f"AND d.document_date <= ${next_param}")
+            params.append(query.date_to)
+            next_param += 1
+
+        if self.enable_query_optimization:
+            filters.append("AND c.chunk_level >= 1")
+
+        filters_order_param = next_param
+        params.append(embedding_vec)
+        next_param += 1
+
+        limit_param = next_param
+        params.append(query.limit * 2)
+
+        final_query = f"""
         WITH vector_search AS (
             SELECT
                 c.chunk_id,
@@ -267,52 +330,20 @@ class OptimizedAsyncSearch:
                 c.content,
                 c.metadata,
                 c.chunk_level,
-                1 - (c.embedding <=> %s::vector) as similarity
+                1 - (e.embedding <=> $1::vector) as similarity
             FROM {{tables.document_chunks}} c
             JOIN {{tables.documents}} d ON c.document_id = d.document_id
-            WHERE c.embedding IS NOT NULL
-            AND d.owner_id = %s
-            {filters}
-            ORDER BY c.embedding <=> %s::vector
-            LIMIT %s
+            JOIN {embedding_table} e ON e.chunk_id = c.chunk_id
+            WHERE d.owner_id = $2
+            {' '.join(filters)}
+            ORDER BY e.embedding <=> ${filters_order_param}::vector
+            LIMIT ${limit_param}
         )
         SELECT * FROM vector_search WHERE similarity > 0.3
         """
 
-        # Build filters
-        filters = []
-        params = [f"[{','.join(map(str, query.query_embedding))}]", query.owner_id]
-
-        if query.metadata_filter:
-            filters.append("AND c.metadata @> %s::jsonb")
-            params.append(json.dumps(query.metadata_filter))
-
-        if query.id_at_origins:
-            filters.append("AND d.id_at_origin = ANY(%s)")
-            params.append(query.id_at_origins)
-
-        if query.date_from:
-            filters.append("AND d.document_date >= %s")
-            params.append(query.date_from)
-
-        if query.date_to:
-            filters.append("AND d.document_date <= %s")
-            params.append(query.date_to)
-
-        # Add chunk level optimization for hierarchical search
-        if self.enable_query_optimization:
-            # Prioritize higher-level chunks first
-            filters.append("AND c.chunk_level >= 1")
-
-        # Add embedding again for ORDER BY clause
-        params.append(f"[{','.join(map(str, query.query_embedding))}]")
-        params.append(query.limit * 2)  # Get extra for filtering
-
-        final_query = base_query.replace("{filters}", " ".join(filters))
-
-        # Track database query time
         db_start = time.time()
-        results = await self.db.execute_and_fetch_all(final_query, tuple(params))
+        results = await self.db.fetch_all(final_query, *params)
 
         if METRICS_ENABLED:
             database_query_duration.labels(query_type="vector_search").observe(
@@ -364,7 +395,7 @@ class OptimizedAsyncSearch:
             text_config = lang_configs.get(lang, "simple")
 
         # Use optimized query with GIN index hints and language-specific search
-        text_query = f"""
+        text_query = """
         WITH text_search AS (
             SELECT
                 c.chunk_id,
@@ -373,50 +404,50 @@ class OptimizedAsyncSearch:
                 c.metadata,
                 c.chunk_level,
                 ts_rank_cd(c.search_vector, query, 32) as rank
-            FROM {{{{tables.document_chunks}}}} c
-            JOIN {{{{tables.documents}}}} d ON c.document_id = d.document_id,
-            websearch_to_tsquery('{text_config}', %s) query
+            FROM {{tables.document_chunks}} c
+            JOIN {{tables.documents}} d ON c.document_id = d.document_id,
+            websearch_to_tsquery($1, $2) query
             WHERE c.search_vector @@ query
-            AND d.owner_id = %s
-            {{filters}}
+            AND d.owner_id = $3
+            {filters}
         )
         SELECT * FROM text_search
         WHERE rank > 0.01
         ORDER BY rank DESC
-        LIMIT %s
+        LIMIT $4
         """
 
-        # Build filters
-        filters = []
-        params = [query.query_text, query.owner_id]
+        filters: List[str] = []
+        params: List[Any] = [text_config, query.query_text, query.owner_id]
+        next_param = 5
 
         if query.metadata_filter:
-            filters.append("AND c.metadata @> %s::jsonb")
+            filters.append(f"AND c.metadata @> ${next_param}::jsonb")
             params.append(json.dumps(query.metadata_filter))
+            next_param += 1
 
         if query.id_at_origins:
-            filters.append("AND d.id_at_origin = ANY(%s)")
+            filters.append(f"AND d.id_at_origin = ANY(${next_param})")
             params.append(query.id_at_origins)
+            next_param += 1
 
         if query.date_from:
-            filters.append("AND d.document_date >= %s")
+            filters.append(f"AND d.document_date >= ${next_param}")
             params.append(query.date_from)
+            next_param += 1
 
         if query.date_to:
-            filters.append("AND d.document_date <= %s")
+            filters.append(f"AND d.document_date <= ${next_param}")
             params.append(query.date_to)
+            next_param += 1
 
         params.append(query.limit)
 
-        # Replace filters placeholder
         final_query = text_query.replace("{filters}", " ".join(filters))
-
-        # Debug: print query
-        print(f"Text search query: {final_query}")
 
         # Track database query time
         db_start = time.time()
-        results = await self.db.execute_and_fetch_all(final_query, tuple(params))
+        results = await self.db.fetch_all(final_query, *params)
 
         if METRICS_ENABLED:
             database_query_duration.labels(query_type="text_search").observe(
@@ -553,7 +584,7 @@ class OptimizedAsyncSearch:
         # Use a more efficient batch query
         query = """
         WITH target_chunks AS (
-            SELECT unnest(%s::uuid[]) as chunk_id
+            SELECT unnest($1::uuid[]) as chunk_id
         ),
         context_chunks AS (
             SELECT
@@ -567,15 +598,15 @@ class OptimizedAsyncSearch:
             FROM target_chunks tc
             JOIN {{tables.document_chunks}} target ON target.chunk_id = tc.chunk_id
             JOIN {{tables.document_chunks}} c ON c.document_id = target.document_id
-            WHERE abs(c.chunk_index - target.chunk_index) <= %s
+            WHERE abs(c.chunk_index - target.chunk_index) <= $2
             AND c.chunk_id != tc.chunk_id
         )
         SELECT * FROM context_chunks
         ORDER BY target_id, chunk_index
         """
 
-        results = await self.db.execute_and_fetch_all(
-            query, ([str(cid) for cid in chunk_ids], context_window)
+        results = await self.db.fetch_all(
+            query, [str(cid) for cid in chunk_ids], context_window
         )
 
         # Group by target chunk

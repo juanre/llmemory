@@ -394,10 +394,12 @@ class AwordMemory:
             params.append(json.dumps(metadata_filter))
             param_count += 1
 
-        # Add ordering
-        order_column = order_by
+        # Add ordering with whitelist to avoid SQL injection via identifiers
+        allowed_order_columns = {"created_at", "updated_at", "document_name"}
+        if order_by not in allowed_order_columns:
+            raise ValidationError("order_by", "Invalid order_by column")
         order_direction = "DESC" if order_desc else "ASC"
-        query_parts.append(f"ORDER BY {order_column} {order_direction}")
+        query_parts.append(f"ORDER BY {order_by} {order_direction}")
 
         # Add pagination
         query_parts.append(f"LIMIT ${param_count} OFFSET ${param_count + 1}")
@@ -598,9 +600,10 @@ class AwordMemory:
             SELECT document_id, document_name, document_type, metadata
             FROM {{tables.documents}}
             WHERE document_id = ANY($1::uuid[])
+              AND owner_id = $2
             """
             )
-            doc_rows = await self._manager.db.db.fetch_all(doc_query, doc_ids)
+            doc_rows = await self._manager.db.db.fetch_all(doc_query, doc_ids, owner_id)
 
             # Create lookup map (convert UUID to string for consistent lookup)
             doc_map = {str(row["document_id"]): row for row in doc_rows}

@@ -1,8 +1,18 @@
 -- Complete schema for aword-memory with pgvector support
 -- Designed for integration with agent-engine for document indexing and retrieval
 
--- Enable pgvector extension (requires superuser privileges)
-CREATE EXTENSION IF NOT EXISTS vector;
+-- Enable pgvector extension (requires superuser privileges). If not permitted, skip.
+DO $$
+BEGIN
+    PERFORM 1 FROM pg_extension WHERE extname = 'vector';
+    IF NOT FOUND THEN
+        BEGIN
+            EXECUTE 'CREATE EXTENSION IF NOT EXISTS vector';
+        EXCEPTION WHEN insufficient_privilege THEN
+            RAISE NOTICE 'Skipping pgvector extension creation due to insufficient privileges';
+        END;
+    END IF;
+END $$;
 
 -- Documents table (using pgdbm template syntax for schema isolation)
 CREATE TABLE IF NOT EXISTS {{tables.documents}} (

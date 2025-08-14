@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+import re
 
 from pgdbm import (AsyncDatabaseManager, AsyncMigrationManager,
                       DatabaseConfig, MonitoredAsyncDatabaseManager)
@@ -146,6 +147,21 @@ class MemoryDatabase:
             """,
         )
 
+    def _validate_identifier(self, name: str) -> None:
+        """Validate SQL identifier to prevent injection via dynamic table names.
+
+        Accepts standard PostgreSQL identifier rules (letters, numbers, underscores; max 63 chars).
+        """
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]{0,62}$", name or ""):
+            raise ValueError(f"Invalid SQL identifier: {name}")
+
+    def _qualify_table_name(self, table_name: str) -> str:
+        """Safely qualify a table name with the configured schema if needed."""
+        self._validate_identifier(table_name)
+        if self.db.schema and self.db.schema != "public":
+            return f'"{self.db.schema}".{table_name}'
+        return table_name
+
         # Search queries
         self.db.add_prepared_statement(
             "get_provider_info",
@@ -253,7 +269,7 @@ class MemoryDatabase:
             query = self.db._prepare_query(
                 """
                 SELECT provider_id, table_name
-                FROM {{tables.embedding_providers}}
+                , dimension FROM {{tables.embedding_providers}}
                 WHERE is_default = true
                 LIMIT 1
                 """
@@ -263,8 +279,7 @@ class MemoryDatabase:
         else:
             query = self.db._prepare_query(
                 """
-                SELECT provider_id, table_name
-                FROM {{tables.embedding_providers}}
+                SELECT provider_id, table_name, dimension FROM {{tables.embedding_providers}}
                 WHERE provider_id = $1
                 """
             )
@@ -275,13 +290,18 @@ class MemoryDatabase:
             raise ValueError(f"Provider {provider_id or 'default'} not found")
 
         table_name = provider_info["table_name"]
+        # Validate embedding dimension
+        provider_dimension = int(provider_info.get("dimension", 0))
+        if provider_dimension and len(embedding) != provider_dimension:
+            logger.warning(
+                
+                f"Embedding dimension mismatch for provider {provider_info.get('provider_id')}: "
+                f"expected {provider_dimension}, got {len(embedding)}"
+            )
+            return False
 
-        # Insert embedding into provider-specific table
-        # Build the table reference with proper schema qualification
-        if self.db.schema and self.db.schema != "public":
-            qualified_table = f"{self.db.schema}.{table_name}"
-        else:
-            qualified_table = table_name
+        # Insert embedding into provider-specific table using safe qualification
+        qualified_table = self._qualify_table_name(table_name)
 
         insert_query = f"""
         INSERT INTO {qualified_table} (chunk_id, embedding)
@@ -328,10 +348,7 @@ class MemoryDatabase:
         embedding_table = provider_info["table_name"]
 
         # Build the table reference with proper schema qualification
-        if self.db.schema and self.db.schema != "public":
-            qualified_embedding_table = f"{self.db.schema}.{embedding_table}"
-        else:
-            qualified_embedding_table = embedding_table
+        qualified_embedding_table = self._qualify_table_name(embedding_table)
 
         # Build query dynamically
         query_parts = [
@@ -560,10 +577,7 @@ class MemoryDatabase:
             if provider_info:
                 table_name = provider_info["table_name"]
                 # Build the table reference with proper schema qualification
-                if self.db.schema and self.db.schema != "public":
-                    qualified_table = f"{self.db.schema}.{table_name}"
-                else:
-                    qualified_table = table_name
+                qualified_table = self._qualify_table_name(table_name)
 
                 return await self.db.fetch_all(
                     f"""
@@ -719,10 +733,7 @@ class MemoryDatabase:
         table_name = provider_info["table_name"]
 
         # Build the table reference with proper schema qualification
-        if self.db.schema and self.db.schema != "public":
-            qualified_table = f"{self.db.schema}.{table_name}"
-        else:
-            qualified_table = table_name
+        qualified_table = self._qualify_table_name(table_name)
 
         return await self.db.fetch_all(
             f"""

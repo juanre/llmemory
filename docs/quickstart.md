@@ -37,7 +37,7 @@ async def main():
         owner_id="workspace-123",
         id_at_origin="user-456",
         document_name="example.txt",
-        document_type=DocumentType.GENERAL,
+        document_type=DocumentType.TEXT,
         content="Your document content here..."
     )
 
@@ -86,7 +86,7 @@ async def run_example(memory):
         Outlook for 2025:
         We expect continued growth driven by AI adoption...
         """,
-        additional_metadata={
+        metadata={
             "fiscal_year": 2024,
             "quarter": "Q4",
             "department": "finance",
@@ -128,7 +128,7 @@ async def run_example(memory):
         limit=10
     )
 
-    print(f"\n📄 Total documents: {doc_list.total_count}")
+    print(f"\n📄 Total documents: {doc_list.total}")
     for doc in doc_list.documents:
         print(f"   - {doc.document_name} ({doc.document_type.value})")
 
@@ -147,10 +147,7 @@ async def run_example(memory):
 ```python
     # Get complete document with chunks
     doc_id = result.document_id
-    full_doc = await memory.get_document(
-        owner_id="acme-corp",
-        document_id=doc_id
-    )
+    full_doc = await memory.get_document(document_id=doc_id, include_chunks=True)
 
     print(f"\n📊 Document Details:")
     print(f"   Name: {full_doc.document.document_name}")
@@ -163,13 +160,12 @@ async def run_example(memory):
 
 ```python
     # Get owner statistics
-    stats = await memory.get_statistics("acme-corp")
+        stats = await memory.get_statistics("acme-corp")
 
     print(f"\n📈 Usage Statistics:")
     print(f"   Documents: {stats.document_count}")
     print(f"   Chunks: {stats.chunk_count}")
-    print(f"   Storage: {stats.total_size_mb:.2f} MB")
-    print(f"   Document Types: {stats.documents_by_type}")
+    print(f"   Storage bytes: {stats.total_size_bytes}")
 ```
 
 ## Complete Example
@@ -218,7 +214,7 @@ async def main():
             - Third-party integrations
             - Marketplace launch
             """,
-            additional_metadata={
+            metadata={
                 "year": 2025,
                 "status": "draft",
                 "author": "Product Team"

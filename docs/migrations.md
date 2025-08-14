@@ -128,7 +128,7 @@ The database user needs these permissions:
 **For migrations:**
 - `CREATE TABLE`
 - `CREATE INDEX`
-- `CREATE EXTENSION` (for pgvector)
+- `CREATE EXTENSION` (for pgvector) — optional: llmemory will skip enabling it if insufficient privileges
 - `INSERT` on `schema_migrations`
 
 **For runtime:**

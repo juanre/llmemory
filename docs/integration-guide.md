@@ -132,10 +132,10 @@ async def create_document(
         document_name=doc.document_name,
         document_type=doc.document_type,
         content=doc.content,
-        additional_metadata=doc.metadata
+        metadata=doc.metadata
     )
     return {
-        "document_id": result.document_id,
+        "document_id": str(result.document.document_id),
         "chunks_created": result.chunks_created,
         "processing_time_ms": result.processing_time_ms
     }
@@ -162,12 +162,18 @@ async def list_documents(
     document_type: Optional[DocumentType] = None,
     memory: AwordMemory = Depends(get_memory)
 ):
-    return await memory.list_documents(
+    docs = await memory.list_documents(
         owner_id=workspace_id,
         document_type=document_type,
         offset=offset,
         limit=limit
     )
+    return {
+        "documents": [d.__dict__ for d in docs.documents],
+        "total": docs.total,
+        "limit": docs.limit,
+        "offset": docs.offset,
+    }
 ```
 
 ### Django Integration
@@ -204,7 +210,7 @@ class DocumentView(View):
         )
 
         return JsonResponse({
-            'document_id': result.document_id,
+            'document_id': str(result.document.document_id),
             'chunks_created': result.chunks_created
         })
 
@@ -216,9 +222,10 @@ class DocumentView(View):
         )
 
         return JsonResponse({
-            'documents': [doc.dict() for doc in docs.documents],
-            'total': docs.total_count,
-            'has_more': docs.has_more
+            'documents': [d.__dict__ for d in docs.documents],
+            'total': docs.total,
+            'limit': docs.limit,
+            'offset': docs.offset
         })
 ```
 
@@ -260,7 +267,7 @@ def add_document():
     ))
 
     return jsonify({
-        'document_id': result.document_id,
+        'document_id': str(result.document.document_id),
         'chunks_created': result.chunks_created
     })
 ```
@@ -297,7 +304,7 @@ class DocumentManager:
             document_name=file_path.name,
             document_type=document_type,
             content=content,
-            additional_metadata={
+            metadata={
                 'file_path': str(file_path),
                 'file_size': file_path.stat().st_size,
                 'mime_type': self.get_mime_type(file_path)
@@ -308,7 +315,7 @@ class DocumentManager:
         file_url = await self.storage.upload(file_path)
 
         return {
-            'document_id': result.document_id,
+            'document_id': str(result.document.document_id),
             'file_url': file_url,
             'chunks': result.chunks_created
         }
@@ -390,7 +397,7 @@ Date: {email_data['date']}
             document_name=email_data['subject'],
             document_type=DocumentType.EMAIL,
             content=content,
-            additional_metadata={
+            metadata={
                 'from': email_data['from'],
                 'to': email_data['to'],
                 'cc': email_data.get('cc', []),
@@ -455,7 +462,7 @@ class SharedMemoryPool:
 
     def get_service(self, schema: str) -> AwordMemory:
         if schema not in self.services:
-            # Create schema-isolated db manager
+            # Create schema-isolated db managers
             db_manager = AsyncDatabaseManager(pool=self.pool, schema=schema)
             # Create memory service using the db manager
             self.services[schema] = AwordMemory.from_db_manager(db_manager)

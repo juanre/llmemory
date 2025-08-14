@@ -178,7 +178,7 @@ class ProductivityApp:
             document_name=title,
             document_type=DocumentType.BUSINESS_REPORT,
             content=content,
-            additional_metadata={
+            metadata={
                 "task_id": task_id,
                 "analysis_id": analysis["document_id"],
                 "project": "main",
@@ -231,7 +231,7 @@ class ProductivityApp:
             "memory": {
                 "documents": memory_stats.document_count,
                 "chunks": memory_stats.chunk_count,
-                "storage_mb": memory_stats.total_size_mb,
+                "storage_bytes": memory_stats.total_size_bytes,
             },
             "connection_pool": {
                 "total": pool_stats.get("size", 0),

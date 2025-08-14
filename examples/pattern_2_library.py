@@ -108,7 +108,7 @@ class DocumentAnalyzer:
         elif "# " in content:
             doc_type = DocumentType.MARKDOWN
         else:
-            doc_type = DocumentType.GENERAL
+            doc_type = DocumentType.TEXT
 
         # Store in llmemory with analysis metadata
         result = await self.memory.add_document(
@@ -117,7 +117,7 @@ class DocumentAnalyzer:
             document_name=filename,
             document_type=doc_type,
             content=content,
-            additional_metadata={
+            metadata={
                 "analysis_type": analysis_type,
                 "word_count": word_count,
                 "char_count": char_count,

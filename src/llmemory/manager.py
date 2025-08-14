@@ -342,11 +342,11 @@ class MemoryManager:
             metadata=metadata,
         )
 
-        # Check if chunk already exists
+        # Check if chunk already exists for this document
         query = self.db.db_manager._prepare_query(
-            "SELECT chunk_id FROM {{tables.document_chunks}} WHERE content_hash = $1"
+            "SELECT chunk_id FROM {{tables.document_chunks}} WHERE document_id = $1 AND content_hash = $2"
         )
-        existing = await conn.fetchrow(query, content_hash)
+        existing = await conn.fetchrow(query, str(document_id), content_hash)
 
         if existing:
             logger.debug(f"Chunk already exists with hash {content_hash}")
@@ -418,11 +418,11 @@ class MemoryManager:
         self, conn: Any, chunk: DocumentChunk
     ) -> Optional[DocumentChunk]:
         """Store a single chunk with all its details."""
-        # Check if chunk already exists
+        # Check if chunk already exists for this document
         query = self.db.db_manager._prepare_query(
-            "SELECT chunk_id FROM {{tables.document_chunks}} WHERE content_hash = $1"
+            "SELECT chunk_id FROM {{tables.document_chunks}} WHERE document_id = $1 AND content_hash = $2"
         )
-        existing = await conn.fetchrow(query, chunk.content_hash)
+        existing = await conn.fetchrow(query, str(chunk.document_id), chunk.content_hash)
 
         if existing:
             logger.debug(f"Chunk already exists with hash {chunk.content_hash}")
@@ -509,15 +509,37 @@ class MemoryManager:
             embedding: Embedding vector (1536 dimensions for text-embedding-3-small)
             provider_id: Optional provider ID (defaults to system default)
         """
-        if len(embedding) != 1536:
+        # Validate embedding dimension against provider configuration
+        if provider_id is None:
+            provider_row = await self.db.db_manager.fetch_one(
+                """
+                SELECT dimension, provider_id
+                FROM {{tables.embedding_providers}}
+                WHERE is_default = true
+                LIMIT 1
+                """
+            )
+        else:
+            provider_row = await self.db.db_manager.fetch_one(
+                """
+                SELECT dimension, provider_id
+                FROM {{tables.embedding_providers}}
+                WHERE provider_id = $1
+                """,
+                provider_id,
+            )
+
+        expected_dim = int(provider_row["dimension"]) if provider_row else 1536
+        resolved_provider_id = provider_row["provider_id"] if provider_row else provider_id
+        if len(embedding) != expected_dim:
             raise ValueError(
-                f"Expected embedding of dimension 1536, got {len(embedding)}"
+                f"Expected embedding of dimension {expected_dim}, got {len(embedding)}"
             )
 
         async with self.db.db_manager.transaction() as conn:
             # Insert or update chunk embedding in provider-specific table
             success = await self.db.insert_chunk_embedding(
-                str(chunk_id), embedding, provider_id, conn=conn
+                str(chunk_id), embedding, resolved_provider_id, conn=conn
             )
 
             if not success:
@@ -525,7 +547,7 @@ class MemoryManager:
 
             # Update embedding queue status
             # If provider_id is None, get the default provider
-            if provider_id is None:
+            if resolved_provider_id is None:
                 provider_query = self.db.db_manager._prepare_query(
                     """
                 SELECT provider_id
@@ -536,9 +558,9 @@ class MemoryManager:
                 )
                 result = await conn.fetchrow(provider_query)
                 if result:
-                    provider_id = result["provider_id"]
+                    resolved_provider_id = result["provider_id"]
                 else:
-                    provider_id = "openai-text-embedding-3-small"  # fallback
+                    resolved_provider_id = "openai-text-embedding-3-small"  # fallback
 
             queue_query = self.db.db_manager._prepare_query(
                 """
@@ -549,7 +571,7 @@ class MemoryManager:
             )
 
             await conn.execute(
-                queue_query, EmbeddingStatus.COMPLETED.value, str(chunk_id), provider_id
+                queue_query, EmbeddingStatus.COMPLETED.value, str(chunk_id), resolved_provider_id
             )
 
     async def search(
@@ -685,15 +707,12 @@ class MemoryManager:
         self, chunk_id: UUID, context_window: int
     ) -> List[DocumentChunk]:
         """Get parent context for a chunk."""
-        # Use schema-qualified function call
-        if self.db.db_manager.schema and self.db.db_manager.schema != "public":
-            query = f"""
-            SELECT * FROM {self.db.db_manager.schema}.get_chunk_with_context($1, $2)
+        # Use template-based schema qualification for the function
+        query = self.db.db_manager._prepare_query(
             """
-        else:
-            query = """
-            SELECT * FROM get_chunk_with_context($1, $2)
+            SELECT * FROM {{schema}}.get_chunk_with_context($1, $2)
             """
+        )
 
         results = await self.db.db_manager.fetch_all(
             query, str(chunk_id), context_window

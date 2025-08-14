@@ -68,7 +68,7 @@ async def main():
 - Use generators for large datasets
 - Consider async/await for I/O operations
         """,
-        additional_metadata={"category": "programming", "language": "python", "version": "1.0"},
+        metadata={"category": "programming", "language": "python", "version": "1.0"},
     )
     print(f"   ✓ Added technical doc: {doc1.document_id}")
 
@@ -101,7 +101,7 @@ Keep up the excellent work!
 Best,
 PM
         """,
-        additional_metadata={
+        metadata={
             "from": "project.manager@company.com",
             "to": ["team@company.com"],
             "date": datetime.now().isoformat(),
@@ -133,7 +133,7 @@ PM
     print("\n6. Listing all documents...")
     doc_list = await memory.list_documents(owner_id="demo-app", limit=10)
 
-    print(f"   Total documents: {doc_list.total_count}")
+    print(f"   Total documents: {doc_list.total}")
     for doc in doc_list.documents:
         print(f"   - {doc.document_name} ({doc.document_type.value})")
 
@@ -142,7 +142,7 @@ PM
     stats = await memory.get_statistics("demo-app")
     print(f"   Documents: {stats.document_count}")
     print(f"   Chunks: {stats.chunk_count}")
-    print(f"   Storage: {stats.total_size_mb:.2f} MB")
+    print(f"   Storage bytes: {stats.total_size_bytes}")
 
     # 7. Clean up
     print("\n8. Cleaning up...")

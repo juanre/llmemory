@@ -274,13 +274,18 @@ model.save('/path/to/models/all-MiniLM-L6-v2')
 #### 1. Enable Connection Pooling
 
 ```python
-# Share pools across services
-pool = await AwordMemory.create_shared_pool(
-    connection_string="postgresql://localhost/db"
-)
+# Share pools across services via pgdbm
+from pgdbm import AsyncDatabaseManager, DatabaseConfig
+from llmemory import AwordMemory
 
-service1 = AwordMemory(pool=pool, schema="service1")
-service2 = AwordMemory(pool=pool, schema="service2")
+config = DatabaseConfig(connection_string="postgresql://localhost/db")
+pool = await AsyncDatabaseManager.create_shared_pool(config)
+
+service1_db = AsyncDatabaseManager(pool=pool, schema="service1")
+service2_db = AsyncDatabaseManager(pool=pool, schema="service2")
+
+service1 = AwordMemory.from_db_manager(service1_db)
+service2 = AwordMemory.from_db_manager(service2_db)
 ```
 
 #### 2. Use Appropriate Indexes

@@ -16,7 +16,6 @@ from llmemory import AwordMemory
 memory = AwordMemory(
     connection_string="postgresql://user:pass@localhost/db",
     openai_api_key="sk-...",  # Optional if using local embeddings
-    schema="myapp"  # Optional schema isolation
 )
 ```
 
@@ -38,7 +37,7 @@ Add a document to the memory system.
 - `document_name` (str): Name of the document
 - `document_type` (DocumentType): Type of document (EMAIL, REPORT, etc.)
 - `content` (str): Document content
-- `additional_metadata` (dict, optional): Extra metadata
+- `metadata` (dict, optional): Extra metadata
 
 **Returns:** `DocumentAddResult` with processing details
 
@@ -76,8 +75,9 @@ docs = await memory.list_documents(
 Get a complete document with all its chunks.
 
 **Parameters:**
-- `owner_id` (str): Workspace identifier
 - `document_id` (str): Document UUID
+- `include_chunks` (bool, optional)
+- `include_embeddings` (bool, optional)
 
 **Returns:** `DocumentWithChunks` containing document info and chunks
 
@@ -123,7 +123,7 @@ results = await memory.search_with_documents(
 )
 ```
 
-##### `async def delete_document(...) -> DeleteResult`
+##### `async def delete_document(document_id: Union[str, UUID]) -> None`
 Delete a single document and its chunks.
 
 **Parameters:**
@@ -139,8 +139,8 @@ result = await memory.delete_document(
 )
 ```
 
-##### `async def delete_documents_by_filter(...) -> DeleteResult`
-Delete multiple documents by criteria.
+##### `async def delete_documents(...) -> DeleteResult`
+Delete multiple documents by IDs or filter.
 
 **Parameters:**
 - `owner_id` (str): Workspace identifier
@@ -150,7 +150,7 @@ Delete multiple documents by criteria.
 **Returns:** `DeleteResult` with deletion details
 
 ```python
-result = await memory.delete_documents_by_filter(
+result = await memory.delete_documents(
     owner_id="workspace-123",
     metadata_filter={"status": "archived"}
 )
@@ -167,7 +167,7 @@ Get usage statistics for an owner.
 ```python
 stats = await memory.get_statistics("workspace-123")
 print(f"Documents: {stats.document_count}")
-print(f"Storage: {stats.total_size_mb:.2f} MB")
+print(f"Storage bytes: {stats.total_size_bytes}")
 ```
 
 ## Data Models
@@ -222,10 +222,9 @@ Paginated document list:
 @dataclass
 class DocumentListResult:
     documents: List[Document]
-    total_count: int
-    offset: int
+    total: int
     limit: int
-    has_more: bool
+    offset: int
 ```
 
 ### OwnerStatistics
@@ -233,13 +232,11 @@ Usage statistics:
 ```python
 @dataclass
 class OwnerStatistics:
-    owner_id: str
     document_count: int
     chunk_count: int
-    total_embeddings: int
-    total_size_mb: float
-    documents_by_type: Dict[str, int]
-    created_at: datetime
+    total_size_bytes: int
+    document_type_breakdown: Optional[Dict[DocumentType, int]]
+    created_date_range: Optional[Tuple[datetime, datetime]]
 ```
 
 ## Configuration
@@ -311,12 +308,12 @@ except AwordMemoryError as e:
 Share connection pools across multiple instances:
 
 ```python
-# Create shared pool
-pool = await memory.create_shared_pool()
-
-# Multiple services share the pool
-service1 = AwordMemory(pool=pool, schema="service1")
-service2 = AwordMemory(pool=pool, schema="service2")
+# Create shared pool and pass db_manager (pgdbm)
+from pgdbm import AsyncDatabaseManager, DatabaseConfig
+config = DatabaseConfig(connection_string="postgresql://...")
+pool = await AsyncDatabaseManager.create_shared_pool(config)
+db_manager = AsyncDatabaseManager(pool=pool, schema="service1")
+service1 = AwordMemory.from_db_manager(db_manager)
 ```
 
 ### Custom Embedding Providers
@@ -359,7 +356,7 @@ metrics = generate_latest()
 ## Best Practices
 
 1. **Connection Management**: Always call `initialize()` before operations and `close()` when done
-2. **Batch Operations**: Use `delete_documents_by_filter()` for bulk deletions
+2. **Batch Operations**: Use `delete_documents()` for bulk deletions
 3. **Search Type**: Use `HYBRID` search for best results in most cases
 4. **Metadata**: Store searchable attributes in metadata for filtering
 5. **Owner IDs**: Use consistent workspace/tenant IDs for data isolation

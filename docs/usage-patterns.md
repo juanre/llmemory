@@ -105,7 +105,7 @@ class DocumentProcessor:
             owner_id=metadata.get('workspace_id', 'default'),
             id_at_origin=metadata.get('user_id', 'system'),
             document_name=metadata.get('filename', 'untitled'),
-            document_type=DocumentType.GENERAL,
+            document_type=DocumentType.TEXT,
             content=processed_content
         )
         return result
@@ -216,7 +216,7 @@ migration_manager = AsyncMigrationManager(
     migrations_path=str(migrations_path),
     module_name="aword_memory"  # Unique identifier
 )
-await migration_manager.apply_pending()
+await migration_manager.apply_pending_migrations()
 ```
 
 ### What Happens in Each Pattern
