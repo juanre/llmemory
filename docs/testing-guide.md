@@ -9,7 +9,7 @@ The memory service provides reusable test fixtures that can be imported into you
 First, ensure you have the test dependencies installed:
 
 ```bash
-uv add "aword-memory[test]"
+uv add "llmemory[test]"
 ```
 
 ### Basic Setup
@@ -213,7 +213,7 @@ The memory service supports optional features through extra dependencies:
 ### Local Embeddings
 For local embedding models (sentence-transformers):
 ```bash
-uv add "aword-memory[local]"
+uv add "llmemory[local]"
 ```
 
 This installs:
@@ -223,12 +223,12 @@ This installs:
 ### Monitoring
 For Prometheus metrics:
 ```bash
-uv add "aword-memory[monitoring]"
+uv add "llmemory[monitoring]"
 ```
 
 ### All Optional Features
 ```bash
-uv add "aword-memory[local,monitoring]"
+uv add "llmemory[local,monitoring]"
 ```
 
 ## Lazy Loading

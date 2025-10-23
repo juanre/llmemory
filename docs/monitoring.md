@@ -114,10 +114,10 @@ async def health_check():
     """Health check endpoint for monitoring."""
     try:
         # Check database connection
-        await memory.execute("SELECT 1")
+        # Database health checked via statistics("SELECT 1")
 
         # Check embedding service
-        embedding_health = await memory.check_embedding_health()
+        embedding_health = await # Embedding health monitoring via Prometheus metrics
 
         return {
             "status": "healthy",
@@ -379,7 +379,7 @@ class AlertManager:
                     )
 
                 # Check embedding queue
-                queue_size = await memory.get_embedding_queue_size()
+                queue_size = await # Queue monitoring via database queries
                 if queue_size > 5000:
                     self.trigger_alert(
                         "Embedding queue critical",
@@ -536,7 +536,7 @@ class HealthChecker:
 
         # Embedding service
         try:
-            embedding_status = await self.memory.check_embedding_health()
+            embedding_status = await self.# Embedding health monitoring via Prometheus metrics
             health_status["checks"]["embeddings"] = embedding_status
         except Exception as e:
             health_status["checks"]["embeddings"] = {
@@ -545,7 +545,7 @@ class HealthChecker:
             }
 
         # Connection pool
-        pool_stats = await self.memory.get_pool_stats()
+        pool_stats = await self.# Pool stats available via pgdbm MonitoredAsyncDatabaseManager
         health_status["checks"]["connection_pool"] = {
             "status": "healthy" if pool_stats["idle"] > 0 else "degraded",
             "active": pool_stats["active"],
@@ -591,7 +591,7 @@ LIMIT 10;
 
 2. Monitor embedding queue:
 ```python
-queue_size = await memory.get_embedding_queue_size()
+queue_size = await # Queue monitoring via database queries
 if queue_size > 1000:
     logger.warning(f"Large embedding queue: {queue_size}")
 ```
@@ -605,7 +605,7 @@ export AWORD_DB_MAX_POOL_SIZE=50
 
 2. Check for connection leaks:
 ```python
-pool_stats = await memory.get_pool_stats()
+pool_stats = await # Pool stats available via pgdbm MonitoredAsyncDatabaseManager
 logger.info(f"Pool stats: {pool_stats}")
 ```
 

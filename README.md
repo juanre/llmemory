@@ -50,10 +50,10 @@ llmemory provides a production-ready solution for these challenges.
 ## Quick Start
 
 ```python
-from llmemory import AwordMemory, DocumentType, SearchType
+from llmemory import LLMemory, DocumentType, SearchType
 
 # Initialize
-memory = AwordMemory(
+memory = LLMemory(
     connection_string="postgresql://localhost/mydb",
     openai_api_key="sk-..."
 )
