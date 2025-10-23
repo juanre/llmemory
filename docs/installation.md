@@ -149,11 +149,11 @@ Create a test script to verify your installation:
 
 ```python
 import asyncio
-from llmemory import AwordMemory, DocumentType
+from llmemory import LLMemory, DocumentType
 
 async def test_installation():
     # Initialize memory service
-    memory = AwordMemory(
+    memory = LLMemory(
         connection_string="postgresql://localhost/testdb",
         openai_api_key="sk-..."  # Or use local embeddings
     )
@@ -225,7 +225,7 @@ Error: OpenAI API key not found
 export AWORD_OPENAI_API_KEY=sk-...
 
 # Or in code
-memory = AwordMemory(
+memory = LLMemory(
     connection_string="...",
     openai_api_key="sk-..."
 )
@@ -276,7 +276,7 @@ model.save('/path/to/models/all-MiniLM-L6-v2')
 ```python
 # Share pools across services via pgdbm
 from pgdbm import AsyncDatabaseManager, DatabaseConfig
-from llmemory import AwordMemory
+from llmemory import LLMemory
 
 config = DatabaseConfig(connection_string="postgresql://localhost/db")
 pool = await AsyncDatabaseManager.create_shared_pool(config)
@@ -284,8 +284,8 @@ pool = await AsyncDatabaseManager.create_shared_pool(config)
 service1_db = AsyncDatabaseManager(pool=pool, schema="service1")
 service2_db = AsyncDatabaseManager(pool=pool, schema="service2")
 
-service1 = AwordMemory.from_db_manager(service1_db)
-service2 = AwordMemory.from_db_manager(service2_db)
+service1 = LLMemory.from_db_manager(service1_db)
+service2 = LLMemory.from_db_manager(service2_db)
 ```
 
 #### 2. Use Appropriate Indexes

@@ -8,8 +8,8 @@ import asyncio
 import os
 
 from dotenv import load_dotenv
-from llmemory import AwordMemory
-from llmemory.config import AwordMemoryConfig, EmbeddingConfig, EmbeddingProviderConfig
+from llmemory import LLMemory
+from llmemory.config import LLMemoryConfig, EmbeddingConfig, EmbeddingProviderConfig
 from llmemory.models import DocumentType, SearchType
 
 # Load environment variables
@@ -21,7 +21,7 @@ async def basic_local_embeddings():
     print("=== Basic Local Embeddings Example ===\n")
 
     # Configure to use local embeddings
-    config = AwordMemoryConfig()
+    config = LLMemoryConfig()
     config.embedding = EmbeddingConfig(
         default_provider="local-minilm",
         providers={
@@ -35,7 +35,7 @@ async def basic_local_embeddings():
     )
 
     # Initialize with local embeddings
-    memory = AwordMemory(
+    memory = LLMemory(
         connection_string="postgresql://postgres:postgres@localhost/aword_memory_local",
         config=config,
     )
@@ -96,7 +96,7 @@ async def compare_embedding_providers():
     print("\n=== Comparing Embedding Providers ===\n")
 
     # Configuration with multiple providers
-    config = AwordMemoryConfig()
+    config = LLMemoryConfig()
     config.embedding = EmbeddingConfig(
         default_provider="local-minilm",  # Default to local
         providers={
@@ -134,7 +134,7 @@ async def multi_language_example():
     print("\n=== Multilingual Embeddings Example ===\n")
 
     # Configure multilingual model
-    config = AwordMemoryConfig()
+    config = LLMemoryConfig()
     config.embedding = EmbeddingConfig(
         default_provider="multilingual",
         providers={
@@ -147,7 +147,7 @@ async def multi_language_example():
         },
     )
 
-    memory = AwordMemory(
+    memory = LLMemory(
         connection_string="postgresql://postgres:postgres@localhost/aword_memory_multilingual",
         config=config,
     )

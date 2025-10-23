@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 import pytest
 from llmemory import (
-    AwordMemory,
+    LLMemory,
     DeleteResult,
     DocumentListResult,
     DocumentNotFoundError,
@@ -21,7 +21,7 @@ class TestDocumentListingAPI:
     """Test the list_documents API method."""
 
     @pytest.mark.asyncio
-    async def test_list_documents_basic(self, memory_library: AwordMemory):
+    async def test_list_documents_basic(self, memory_library: LLMemory):
         """Test basic document listing."""
         # Add test documents
         owner_id = "test_owner"
@@ -53,7 +53,7 @@ class TestDocumentListingAPI:
             assert doc.document_name.startswith("Document")
 
     @pytest.mark.asyncio
-    async def test_list_documents_pagination(self, memory_library: AwordMemory):
+    async def test_list_documents_pagination(self, memory_library: LLMemory):
         """Test document listing with pagination."""
         owner_id = "test_owner_paginated"
 
@@ -88,7 +88,7 @@ class TestDocumentListingAPI:
         assert page1_ids.isdisjoint(page2_ids)
 
     @pytest.mark.asyncio
-    async def test_list_documents_by_type(self, memory_library: AwordMemory):
+    async def test_list_documents_by_type(self, memory_library: LLMemory):
         """Test filtering documents by type."""
         owner_id = "test_owner_types"
 
@@ -125,7 +125,7 @@ class TestDocumentListingAPI:
         assert md_docs.documents[0].document_type == DocumentType.MARKDOWN
 
     @pytest.mark.asyncio
-    async def test_list_documents_with_metadata_filter(self, memory_library: AwordMemory):
+    async def test_list_documents_with_metadata_filter(self, memory_library: LLMemory):
         """Test filtering documents by metadata."""
         owner_id = "test_owner_metadata"
 
@@ -165,7 +165,7 @@ class TestDocumentListingAPI:
         assert high_priority_finance.documents[0].metadata["priority"] == "high"
 
     @pytest.mark.asyncio
-    async def test_list_documents_ordering(self, memory_library: AwordMemory):
+    async def test_list_documents_ordering(self, memory_library: LLMemory):
         """Test document ordering options."""
         owner_id = "test_owner_ordering"
 
@@ -204,7 +204,7 @@ class TestDocumentRetrievalAPI:
     """Test the get_document API method."""
 
     @pytest.mark.asyncio
-    async def test_get_document_basic(self, memory_library: AwordMemory):
+    async def test_get_document_basic(self, memory_library: LLMemory):
         """Test basic document retrieval."""
         # Add a document
         result = await memory_library.add_document(
@@ -231,7 +231,7 @@ class TestDocumentRetrievalAPI:
         assert doc_with_chunks.chunks is None  # Not requested
 
     @pytest.mark.asyncio
-    async def test_get_document_with_chunks(self, memory_library: AwordMemory):
+    async def test_get_document_with_chunks(self, memory_library: LLMemory):
         """Test document retrieval with chunks."""
         # Add a document with longer content for multiple chunks
         content = """
@@ -272,7 +272,7 @@ class TestDocumentRetrievalAPI:
             assert chunk.chunk_index >= 0
 
     @pytest.mark.asyncio
-    async def test_get_document_not_found(self, memory_library: AwordMemory):
+    async def test_get_document_not_found(self, memory_library: LLMemory):
         """Test retrieving non-existent document."""
         fake_id = "00000000-0000-0000-0000-000000000000"
 
@@ -280,7 +280,7 @@ class TestDocumentRetrievalAPI:
             await memory_library.get_document(fake_id)
 
     @pytest.mark.asyncio
-    async def test_get_document_string_uuid(self, memory_library: AwordMemory):
+    async def test_get_document_string_uuid(self, memory_library: LLMemory):
         """Test retrieving document with string UUID."""
         # Add a document
         result = await memory_library.add_document(
@@ -301,7 +301,7 @@ class TestEnhancedSearchAPI:
     """Test the search_with_documents API method."""
 
     @pytest.mark.asyncio
-    async def test_search_with_documents_basic(self, memory_library_with_embeddings: AwordMemory):
+    async def test_search_with_documents_basic(self, memory_library_with_embeddings: LLMemory):
         """Test enhanced search with document metadata."""
         memory = memory_library_with_embeddings
 
@@ -326,7 +326,7 @@ class TestEnhancedSearchAPI:
 
     @pytest.mark.asyncio
     async def test_search_without_document_metadata(
-        self, memory_library_with_embeddings: AwordMemory
+        self, memory_library_with_embeddings: LLMemory
     ):
         """Test search without document metadata enrichment."""
         memory = memory_library_with_embeddings
@@ -345,7 +345,7 @@ class TestEnhancedSearchAPI:
             assert result.document_metadata == {}
 
     @pytest.mark.asyncio
-    async def test_search_with_metadata_filter(self, memory_library: AwordMemory):
+    async def test_search_with_metadata_filter(self, memory_library: LLMemory):
         """Test search with chunk metadata filtering."""
         owner_id = "test_search_metadata"
 
@@ -385,7 +385,7 @@ class TestStatisticsAPI:
     """Test the get_statistics API method."""
 
     @pytest.mark.asyncio
-    async def test_get_statistics_basic(self, memory_library: AwordMemory):
+    async def test_get_statistics_basic(self, memory_library: LLMemory):
         """Test basic statistics retrieval."""
         owner_id = "test_stats_owner"
 
@@ -416,7 +416,7 @@ class TestStatisticsAPI:
         assert stats.created_date_range is not None
 
     @pytest.mark.asyncio
-    async def test_get_statistics_with_breakdown(self, memory_library: AwordMemory):
+    async def test_get_statistics_with_breakdown(self, memory_library: LLMemory):
         """Test statistics with document type breakdown."""
         owner_id = "test_stats_breakdown"
 
@@ -456,7 +456,7 @@ class TestStatisticsAPI:
         assert stats.created_date_range[0] <= stats.created_date_range[1]
 
     @pytest.mark.asyncio
-    async def test_get_statistics_empty_owner(self, memory_library: AwordMemory):
+    async def test_get_statistics_empty_owner(self, memory_library: LLMemory):
         """Test statistics for owner with no documents."""
         stats = await memory_library.get_statistics("non_existent_owner")
 
@@ -470,7 +470,7 @@ class TestChunkManagementAPIs:
     """Test chunk management API methods."""
 
     @pytest.mark.asyncio
-    async def test_get_document_chunks(self, memory_library: AwordMemory):
+    async def test_get_document_chunks(self, memory_library: LLMemory):
         """Test retrieving document chunks."""
         # Add a document
         result = await memory_library.add_document(
@@ -495,7 +495,7 @@ class TestChunkManagementAPIs:
             assert chunks[i].chunk_index >= chunks[i - 1].chunk_index
 
     @pytest.mark.asyncio
-    async def test_get_document_chunks_with_pagination(self, memory_library: AwordMemory):
+    async def test_get_document_chunks_with_pagination(self, memory_library: LLMemory):
         """Test retrieving chunks with pagination."""
         # Add document with content that creates multiple chunks
         content = "\n\n".join([f"Section {i}: " + "Content " * 50 for i in range(10)])
@@ -528,7 +528,7 @@ class TestChunkManagementAPIs:
         assert page1_ids.isdisjoint(page2_ids)
 
     @pytest.mark.asyncio
-    async def test_get_chunk_count(self, memory_library: AwordMemory):
+    async def test_get_chunk_count(self, memory_library: LLMemory):
         """Test getting chunk count for a document."""
         # Add a document with more content to ensure multiple chunks
         content = "This is a test document with substantial content. " * 50
@@ -551,7 +551,7 @@ class TestChunkManagementAPIs:
         assert count <= result.chunks_created
 
     @pytest.mark.asyncio
-    async def test_chunk_apis_document_not_found(self, memory_library: AwordMemory):
+    async def test_chunk_apis_document_not_found(self, memory_library: LLMemory):
         """Test chunk APIs with non-existent document."""
         fake_id = "00000000-0000-0000-0000-000000000000"
 
@@ -566,7 +566,7 @@ class TestBatchOperations:
     """Test batch operation API methods."""
 
     @pytest.mark.asyncio
-    async def test_delete_documents_by_ids(self, memory_library: AwordMemory):
+    async def test_delete_documents_by_ids(self, memory_library: LLMemory):
         """Test deleting multiple documents by IDs."""
         owner_id = "test_batch_delete"
         doc_ids = []
@@ -597,7 +597,7 @@ class TestBatchOperations:
         assert remaining.total == 2
 
     @pytest.mark.asyncio
-    async def test_delete_documents_by_metadata(self, memory_library: AwordMemory):
+    async def test_delete_documents_by_metadata(self, memory_library: LLMemory):
         """Test deleting documents by metadata filter."""
         owner_id = "test_batch_delete_metadata"
 
@@ -626,7 +626,7 @@ class TestBatchOperations:
         assert all(doc.metadata["category"] == "keep_me" for doc in remaining.documents)
 
     @pytest.mark.asyncio
-    async def test_delete_documents_wrong_owner(self, memory_library: AwordMemory):
+    async def test_delete_documents_wrong_owner(self, memory_library: LLMemory):
         """Test that documents can only be deleted by their owner."""
         # Add document as one owner
         result = await memory_library.add_document(
@@ -650,7 +650,7 @@ class TestBatchOperations:
         assert doc.document.owner_id == "owner1"
 
     @pytest.mark.asyncio
-    async def test_delete_documents_no_filter_error(self, memory_library: AwordMemory):
+    async def test_delete_documents_no_filter_error(self, memory_library: LLMemory):
         """Test that delete requires either IDs or metadata filter."""
         with pytest.raises(ValueError) as exc_info:
             await memory_library.delete_documents("test_owner")
@@ -662,7 +662,7 @@ class TestDocumentAddResult:
     """Test the enhanced add_document return value."""
 
     @pytest.mark.asyncio
-    async def test_add_document_returns_statistics(self, memory_library: AwordMemory):
+    async def test_add_document_returns_statistics(self, memory_library: LLMemory):
         """Test that add_document returns proper statistics."""
         result = await memory_library.add_document(
             owner_id="test_owner",
@@ -687,7 +687,7 @@ class TestDocumentAddResult:
         assert result.document.owner_id == "test_owner"
 
     @pytest.mark.asyncio
-    async def test_add_document_without_embeddings(self, memory_library: AwordMemory):
+    async def test_add_document_without_embeddings(self, memory_library: LLMemory):
         """Test add_document without generating embeddings."""
         result = await memory_library.add_document(
             owner_id="test_owner",

@@ -3,14 +3,14 @@
 import asyncio
 
 import pytest
-from llmemory import AwordMemory, DocumentNotFoundError, DocumentType, SearchType, ValidationError
+from llmemory import LLMemory, DocumentNotFoundError, DocumentType, SearchType, ValidationError
 
 
 class TestAPIIntegration:
     """Test integration between different API methods."""
 
     @pytest.mark.asyncio
-    async def test_full_document_lifecycle(self, memory_library: AwordMemory):
+    async def test_full_document_lifecycle(self, memory_library: LLMemory):
         """Test complete document lifecycle using all APIs."""
         owner_id = "test_lifecycle"
 
@@ -76,7 +76,7 @@ class TestAPIIntegration:
         assert final_stats.document_count == 0
 
     @pytest.mark.asyncio
-    async def test_multi_owner_isolation(self, memory_library: AwordMemory):
+    async def test_multi_owner_isolation(self, memory_library: LLMemory):
         """Test that different owners' data is properly isolated."""
         owner1 = "company_a"
         owner2 = "company_b"
@@ -130,7 +130,7 @@ class TestAPIIntegration:
         assert owner2_docs_after.total == 3
 
     @pytest.mark.asyncio
-    async def test_search_and_chunk_retrieval(self, memory_library_with_embeddings: AwordMemory):
+    async def test_search_and_chunk_retrieval(self, memory_library_with_embeddings: LLMemory):
         """Test searching and then retrieving full documents with chunks."""
         memory = memory_library_with_embeddings
 
@@ -161,7 +161,7 @@ class TestAPIIntegration:
             assert found_chunk, "Search result chunk should be in document chunks"
 
     @pytest.mark.asyncio
-    async def test_metadata_filtering_across_apis(self, memory_library: AwordMemory):
+    async def test_metadata_filtering_across_apis(self, memory_library: LLMemory):
         """Test metadata filtering works consistently across different APIs."""
         owner_id = "test_metadata_consistency"
 
@@ -220,7 +220,7 @@ class TestAPIIntegration:
         assert all(doc.metadata["priority"] != "low" for doc in remaining.documents)
 
     @pytest.mark.asyncio
-    async def test_pagination_consistency(self, memory_library: AwordMemory):
+    async def test_pagination_consistency(self, memory_library: LLMemory):
         """Test that pagination works consistently across list and chunk APIs."""
         owner_id = "test_pagination"
 
@@ -273,7 +273,7 @@ class TestErrorHandling:
     """Test error handling across new APIs."""
 
     @pytest.mark.asyncio
-    async def test_invalid_owner_id(self, memory_library: AwordMemory):
+    async def test_invalid_owner_id(self, memory_library: LLMemory):
         """Test validation of owner_id parameter."""
         # Empty owner_id
         with pytest.raises(ValidationError) as exc_info:
@@ -285,7 +285,7 @@ class TestErrorHandling:
             await memory_library.list_documents(None)
 
     @pytest.mark.asyncio
-    async def test_invalid_pagination_params(self, memory_library: AwordMemory):
+    async def test_invalid_pagination_params(self, memory_library: LLMemory):
         """Test handling of invalid pagination parameters."""
         owner_id = "test_owner"
 
@@ -309,7 +309,7 @@ class TestErrorHandling:
         assert docs.total == 1  # Still shows correct total
 
     @pytest.mark.asyncio
-    async def test_concurrent_operations(self, memory_library: AwordMemory):
+    async def test_concurrent_operations(self, memory_library: LLMemory):
         """Test concurrent API operations don't interfere with each other."""
         owner_id = "test_concurrent"
 
@@ -370,7 +370,7 @@ class TestPerformanceConsiderations:
     """Test performance aspects of new APIs."""
 
     @pytest.mark.asyncio
-    async def test_large_document_handling(self, memory_library: AwordMemory):
+    async def test_large_document_handling(self, memory_library: LLMemory):
         """Test handling of large documents."""
         owner_id = "test_performance"
 
@@ -407,7 +407,7 @@ class TestPerformanceConsiderations:
         await memory_library.delete_document(add_result.document.document_id)
 
     @pytest.mark.asyncio
-    async def test_batch_operations_performance(self, memory_library: AwordMemory):
+    async def test_batch_operations_performance(self, memory_library: LLMemory):
         """Test performance of batch operations."""
         owner_id = "test_batch_perf"
 

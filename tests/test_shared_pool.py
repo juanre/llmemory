@@ -1,7 +1,7 @@
 """Test shared pool functionality for aword-memory."""
 
 import pytest
-from llmemory import AwordMemory
+from llmemory import LLMemory
 from llmemory.db import MemoryDatabase
 from llmemory.manager import MemoryManager
 from llmemory.models import DocumentType
@@ -74,12 +74,12 @@ async def test_memory_manager_from_db_manager(test_db_factory):
 
 @pytest.mark.asyncio
 async def test_aword_memory_from_db_manager(test_db_factory):
-    """Test creating AwordMemory from external db manager."""
+    """Test creating LLMemory from external db manager."""
     # Create a test db manager with the schema we want
     db_manager = await test_db_factory.create_db(suffix="aword_shared", schema="test_schema")
 
-    # Create AwordMemory using the shared pool pattern
-    aword_memory = AwordMemory.from_db_manager(db_manager, openai_api_key="test-key")
+    # Create LLMemory using the shared pool pattern
+    aword_memory = LLMemory.from_db_manager(db_manager, openai_api_key="test-key")
 
     # Verify it's configured correctly
     assert aword_memory._external_db is True
@@ -119,8 +119,8 @@ async def test_shared_pool_integration(test_db_factory):
     aword_db = await test_db_factory.create_db(suffix="aword", schema="aword_test")
     other_db = await test_db_factory.create_db(suffix="other", schema="other_service")
 
-    # Create AwordMemory with shared pool
-    aword_memory = AwordMemory.from_db_manager(aword_db)
+    # Create LLMemory with shared pool
+    aword_memory = LLMemory.from_db_manager(aword_db)
 
     # Initialize
     await aword_memory.initialize()
@@ -160,8 +160,8 @@ async def test_standalone_vs_shared_behavior(test_db_factory):
     db1 = await test_db_factory.create_db(suffix="mode1", schema="test_mode1")
     db2 = await test_db_factory.create_db(suffix="mode2", schema="test_mode2")
 
-    # Mode 1: Create AwordMemory from db_manager (typical usage)
-    mode1 = AwordMemory.from_db_manager(db1)
+    # Mode 1: Create LLMemory from db_manager (typical usage)
+    mode1 = LLMemory.from_db_manager(db1)
     await mode1.initialize()
 
     mode1_doc = await mode1.add_document(
@@ -172,8 +172,8 @@ async def test_standalone_vs_shared_behavior(test_db_factory):
         content=test_content,
     )
 
-    # Mode 2: Create another AwordMemory from a different db_manager
-    mode2 = AwordMemory.from_db_manager(db2)
+    # Mode 2: Create another LLMemory from a different db_manager
+    mode2 = LLMemory.from_db_manager(db2)
     await mode2.initialize()
 
     mode2_doc = await mode2.add_document(

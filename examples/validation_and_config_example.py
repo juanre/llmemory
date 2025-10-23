@@ -13,8 +13,8 @@ from datetime import datetime
 
 from dotenv import load_dotenv
 from llmemory import (
-    AwordMemory,
-    AwordMemoryConfig,
+    LLMemory,
+    LLMemoryConfig,
     ConfigurationError,
     DocumentType,
     EmbeddingError,
@@ -33,14 +33,14 @@ async def configuration_examples():
 
     # 1. Default configuration
     print("1. Default Configuration:")
-    default_config = AwordMemoryConfig()
+    default_config = LLMemoryConfig()
     print(f"   Default provider: {default_config.embedding.default_provider}")
     print(f"   OpenAI model: {default_config.embedding.providers['openai'].model_name}")
     print(f"   Dimension: {default_config.embedding.providers['openai'].dimension}")
 
     # 2. Custom configuration
     print("\n2. Custom Configuration:")
-    custom_config = AwordMemoryConfig()
+    custom_config = LLMemoryConfig()
 
     # Customize embedding settings
     custom_config.embedding = EmbeddingConfig(
@@ -91,7 +91,7 @@ async def configuration_examples():
     print("   - AWORD_DB_MAX_POOL_SIZE=50")
 
     # Load from environment
-    env_config = AwordMemoryConfig.from_env()
+    env_config = LLMemoryConfig.from_env()
     print("\n   Loaded from environment:")
     print(f"   - Default provider: {env_config.embedding.default_provider}")
 
@@ -101,7 +101,7 @@ async def validation_examples():
     print("\n\n=== Validation Examples ===\n")
 
     # Initialize memory
-    memory = AwordMemory(
+    memory = LLMemory(
         connection_string="postgresql://postgres:postgres@localhost/aword_memory_validation",
         openai_api_key=os.getenv("OPENAI_API_KEY"),
     )
@@ -195,7 +195,7 @@ async def error_handling_examples():
 
     # 1. Missing API key for vector search
     print("1. Testing missing API key:")
-    memory_no_key = AwordMemory(
+    memory_no_key = LLMemory(
         connection_string="postgresql://postgres:postgres@localhost/aword_memory_errors"
     )
 
@@ -213,10 +213,10 @@ async def error_handling_examples():
     # 2. Invalid embedding provider
     print("\n2. Testing invalid provider:")
     try:
-        bad_config = AwordMemoryConfig()
+        bad_config = LLMemoryConfig()
         bad_config.embedding.default_provider = "nonexistent"
 
-        memory_bad = AwordMemory(
+        memory_bad = LLMemory(
             connection_string="postgresql://postgres:postgres@localhost/aword_memory_errors",
             config=bad_config,
         )
@@ -234,7 +234,7 @@ async def production_best_practices():
 
     # 1. Multi-provider setup
     print("1. Multi-Provider Configuration:")
-    prod_config = AwordMemoryConfig()
+    prod_config = LLMemoryConfig()
     prod_config.embedding = EmbeddingConfig(
         default_provider="local-minilm",  # Default to local for privacy
         providers={
@@ -260,7 +260,7 @@ async def production_best_practices():
 
     # 2. Error recovery
     print("\n2. Error Recovery Pattern:")
-    memory = AwordMemory(
+    memory = LLMemory(
         connection_string=os.getenv("DATABASE_URL", "postgresql://localhost/aword_memory"),
         config=prod_config,
     )

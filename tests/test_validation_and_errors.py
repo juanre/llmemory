@@ -4,9 +4,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
-from llmemory.config import AwordMemoryConfig
+from llmemory.config import LLMemoryConfig
 from llmemory.exceptions import DatabaseError, EmbeddingError, ValidationError
-from llmemory.library import AwordMemory
+from llmemory.library import LLMemory
 from llmemory.models import DocumentType, SearchType
 from llmemory.validators import InputValidator
 
@@ -128,16 +128,16 @@ class TestInputValidator:
 
 
 @pytest.mark.asyncio
-class TestAwordMemoryValidation:
-    """Test validation in AwordMemory library."""
+class TestLLMemoryValidation:
+    """Test validation in LLMemory library."""
 
     @pytest_asyncio.fixture
     async def memory(self):
-        """Create AwordMemory instance for testing."""
-        config = AwordMemoryConfig()
+        """Create LLMemory instance for testing."""
+        config = LLMemoryConfig()
         # Mock the OpenAI API key for testing
         config.embedding.providers["openai"].api_key = "test-key"
-        memory = AwordMemory(
+        memory = LLMemory(
             connection_string="postgresql://test:test@localhost/test", config=config
         )
         # Don't initialize to avoid database connection
@@ -236,13 +236,13 @@ class TestConfigurationValidation:
 
     def test_valid_configuration(self):
         """Test valid configuration."""
-        config = AwordMemoryConfig()
+        config = LLMemoryConfig()
         config.embedding.providers["openai"].api_key = "test-key"
         config.validate()  # Should not raise
 
     def test_invalid_configuration(self):
         """Test invalid configuration."""
-        config = AwordMemoryConfig()
+        config = LLMemoryConfig()
 
         # No providers
         config.embedding.providers = {}
@@ -251,14 +251,14 @@ class TestConfigurationValidation:
         assert "At least one embedding provider" in str(exc_info.value)
 
         # Invalid default provider
-        config = AwordMemoryConfig()
+        config = LLMemoryConfig()
         config.embedding.default_provider = "non_existent"
         with pytest.raises(ValueError) as exc_info:
             config.validate()
         assert "not found in providers" in str(exc_info.value)
 
         # Invalid dimensions
-        config = AwordMemoryConfig()
+        config = LLMemoryConfig()
         config.embedding.providers["openai"].dimension = -1
         with pytest.raises(ValueError) as exc_info:
             config.validate()
@@ -274,7 +274,7 @@ class TestConfigurationValidation:
         monkeypatch.setenv("AWORD_LOG_LEVEL", "DEBUG")
         monkeypatch.setenv("AWORD_DISABLE_CACHING", "1")
 
-        config = AwordMemoryConfig.from_env()
+        config = LLMemoryConfig.from_env()
 
         assert config.embedding.default_provider == "local-minilm"
         assert config.embedding.providers["openai"].api_key == "test-api-key"
@@ -288,10 +288,10 @@ class TestExceptionHierarchy:
     """Test custom exception hierarchy."""
 
     def test_base_exception(self):
-        """Test base AwordMemoryError."""
-        from llmemory.exceptions import AwordMemoryError
+        """Test base LLMemoryError."""
+        from llmemory.exceptions import LLMemoryError
 
-        error = AwordMemoryError("Test error")
+        error = LLMemoryError("Test error")
         assert str(error) == "Test error"
         assert isinstance(error, Exception)
 

@@ -11,12 +11,12 @@ This guide covers framework integration patterns for llmemory.
 ```python
 from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
-from llmemory import AwordMemory, DocumentType
+from llmemory import LLMemory, DocumentType
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize llmemory
-    app.state.memory = AwordMemory(
+    app.state.memory = LLMemory(
         connection_string=os.getenv("DATABASE_URL"),
         openai_api_key=os.getenv("OPENAI_API_KEY")
     )
@@ -54,7 +54,7 @@ Implement tenant isolation using owner_id:
 
 ```python
 class TenantMemoryService:
-    def __init__(self, memory: AwordMemory):
+    def __init__(self, memory: LLMemory):
         self.memory = memory
 
     async def add_document(self, tenant_id: str, user_id: str, **kwargs):
@@ -82,7 +82,7 @@ Complete FastAPI integration with dependency injection:
 ```python
 from fastapi import FastAPI, Depends, HTTPException
 from contextlib import asynccontextmanager
-from llmemory import AwordMemory, DocumentType, SearchType
+from llmemory import LLMemory, DocumentType, SearchType
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 
@@ -102,7 +102,7 @@ class SearchRequest(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    memory = AwordMemory(
+    memory = LLMemory(
         connection_string="postgresql://localhost/mydb",
         openai_api_key="sk-..."
     )
@@ -115,7 +115,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 # Dependency
-def get_memory() -> AwordMemory:
+def get_memory() -> LLMemory:
     return app.state.memory
 
 # Endpoints
@@ -124,7 +124,7 @@ async def create_document(
     workspace_id: str,
     doc: DocumentCreate,
     user_id: str,  # From auth
-    memory: AwordMemory = Depends(get_memory)
+    memory: LLMemory = Depends(get_memory)
 ):
     result = await memory.add_document(
         owner_id=workspace_id,
@@ -144,7 +144,7 @@ async def create_document(
 async def search_documents(
     workspace_id: str,
     request: SearchRequest,
-    memory: AwordMemory = Depends(get_memory)
+    memory: LLMemory = Depends(get_memory)
 ):
     results = await memory.search_with_documents(
         owner_id=workspace_id,
@@ -160,7 +160,7 @@ async def list_documents(
     offset: int = 0,
     limit: int = 20,
     document_type: Optional[DocumentType] = None,
-    memory: AwordMemory = Depends(get_memory)
+    memory: LLMemory = Depends(get_memory)
 ):
     docs = await memory.list_documents(
         owner_id=workspace_id,
@@ -185,11 +185,11 @@ Integrate with Django using async views:
 from django.http import JsonResponse
 from django.views import View
 from asgiref.sync import async_to_sync
-from llmemory import AwordMemory, DocumentType
+from llmemory import LLMemory, DocumentType
 import json
 
 # Initialize once
-memory = AwordMemory(
+memory = LLMemory(
     connection_string="postgresql://localhost/mydb",
     openai_api_key="sk-..."
 )
@@ -235,7 +235,7 @@ Use with Flask and async support:
 
 ```python
 from flask import Flask, request, jsonify
-from llmemory import AwordMemory, DocumentType
+from llmemory import LLMemory, DocumentType
 import asyncio
 
 app = Flask(__name__)
@@ -243,7 +243,7 @@ memory = None
 
 def init_memory():
     global memory
-    memory = AwordMemory(
+    memory = LLMemory(
         connection_string="postgresql://localhost/mydb",
         openai_api_key="sk-..."
     )
@@ -278,7 +278,7 @@ def add_document():
 
 ```python
 class DocumentManager:
-    def __init__(self, memory: AwordMemory, storage):
+    def __init__(self, memory: LLMemory, storage):
         self.memory = memory
         self.storage = storage
 
@@ -325,7 +325,7 @@ class DocumentManager:
 
 ```python
 class KnowledgeBase:
-    def __init__(self, memory: AwordMemory):
+    def __init__(self, memory: LLMemory):
         self.memory = memory
 
     async def intelligent_search(
@@ -372,7 +372,7 @@ class KnowledgeBase:
 
 ```python
 class EmailArchive:
-    def __init__(self, memory: AwordMemory):
+    def __init__(self, memory: LLMemory):
         self.memory = memory
 
     async def archive_email(
@@ -447,7 +447,7 @@ Date: {email_data['date']}
 ```python
 # Shared pool for multiple services
 from pgdbm import AsyncDatabaseManager, DatabaseConfig
-from llmemory import AwordMemory
+from llmemory import LLMemory
 
 class SharedMemoryPool:
     def __init__(self, connection_string: str):
@@ -460,12 +460,12 @@ class SharedMemoryPool:
         config = DatabaseConfig(connection_string=self.connection_string)
         self.pool = await AsyncDatabaseManager.create_shared_pool(config)
 
-    def get_service(self, schema: str) -> AwordMemory:
+    def get_service(self, schema: str) -> LLMemory:
         if schema not in self.services:
             # Create schema-isolated db managers
             db_manager = AsyncDatabaseManager(pool=self.pool, schema=schema)
             # Create memory service using the db manager
-            self.services[schema] = AwordMemory.from_db_manager(db_manager)
+            self.services[schema] = LLMemory.from_db_manager(db_manager)
         return self.services[schema]
 
     async def close(self):
@@ -495,7 +495,7 @@ from functools import lru_cache
 import hashlib
 
 class CachedMemoryService:
-    def __init__(self, memory: AwordMemory):
+    def __init__(self, memory: LLMemory):
         self.memory = memory
         self._search_cache = {}
 
@@ -533,7 +533,7 @@ class CachedMemoryService:
 
 ```python
 class BatchProcessor:
-    def __init__(self, memory: AwordMemory):
+    def __init__(self, memory: LLMemory):
         self.memory = memory
 
     async def batch_add_documents(
@@ -570,7 +570,7 @@ class BatchProcessor:
 from llmemory import ValidationError
 
 class SecureMemoryService:
-    def __init__(self, memory: AwordMemory):
+    def __init__(self, memory: LLMemory):
         self.memory = memory
 
     async def add_document_secure(
@@ -606,14 +606,14 @@ class SecureMemoryService:
 
 ```python
 class TenantIsolatedMemory:
-    def __init__(self, memory: AwordMemory):
+    def __init__(self, memory: LLMemory):
         self.memory = memory
 
-    async def get_tenant_memory(self, tenant_id: str) -> AwordMemory:
+    async def get_tenant_memory(self, tenant_id: str) -> LLMemory:
         # Each tenant gets isolated schema
         schema_name = f"tenant_{tenant_id}"
 
-        return AwordMemory(
+        return LLMemory(
             pool=self.memory.pool,
             schema=schema_name
         )
@@ -647,7 +647,7 @@ active_documents = Gauge(
 )
 
 class MonitoredMemory:
-    def __init__(self, memory: AwordMemory):
+    def __init__(self, memory: LLMemory):
         self.memory = memory
 
     async def add_document(self, **kwargs):

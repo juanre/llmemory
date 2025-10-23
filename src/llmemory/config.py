@@ -163,7 +163,7 @@ class ValidationConfig:
 
 
 @dataclass
-class AwordMemoryConfig:
+class LLMemoryConfig:
     """Main configuration for aword-memory library."""
 
     embedding: EmbeddingConfig = field(default_factory=EmbeddingConfig)
@@ -183,7 +183,7 @@ class AwordMemoryConfig:
     slow_query_threshold: float = 1.0  # seconds
 
     @classmethod
-    def from_env(cls) -> "AwordMemoryConfig":
+    def from_env(cls) -> "LLMemoryConfig":
         """Create configuration from environment variables."""
         config = cls()
 
@@ -292,19 +292,19 @@ class AwordMemoryConfig:
 
 
 # Global configuration instance
-_config: Optional[AwordMemoryConfig] = None
+_config: Optional[LLMemoryConfig] = None
 
 
-def get_config() -> AwordMemoryConfig:
+def get_config() -> LLMemoryConfig:
     """Get the global configuration instance."""
     global _config
     if _config is None:
-        _config = AwordMemoryConfig.from_env()
+        _config = LLMemoryConfig.from_env()
         _config.validate()
     return _config
 
 
-def set_config(config: AwordMemoryConfig) -> None:
+def set_config(config: LLMemoryConfig) -> None:
     """Set the global configuration instance."""
     global _config
     config.validate()

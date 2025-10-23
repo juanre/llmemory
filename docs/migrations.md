@@ -18,7 +18,7 @@ llmemory uses pgdbm's migration system to manage its database schema. Key featur
 When llmemory creates its own connection:
 
 ```python
-memory = AwordMemory(connection_string="postgresql://localhost/mydb")
+memory = LLMemory(connection_string="postgresql://localhost/mydb")
 await memory.initialize()  # Runs migrations
 ```
 
@@ -51,7 +51,7 @@ shared_pool = await AsyncDatabaseManager.create_shared_pool(config)
 memory_db = AsyncDatabaseManager(pool=shared_pool, schema="llmemory")
 
 # llmemory uses the manager
-memory = AwordMemory.from_db_manager(memory_db)
+memory = LLMemory.from_db_manager(memory_db)
 await memory.initialize()  # Runs migrations in "llmemory" schema
 ```
 

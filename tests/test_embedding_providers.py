@@ -4,8 +4,8 @@ import os
 
 import pytest
 import pytest_asyncio
-from llmemory import AwordMemory
-from llmemory.config import AwordMemoryConfig, EmbeddingConfig, EmbeddingProviderConfig
+from llmemory import LLMemory
+from llmemory.config import LLMemoryConfig, EmbeddingConfig, EmbeddingProviderConfig
 from llmemory.embedding_providers import EmbeddingProviderFactory
 from llmemory.exceptions import ConfigurationError
 from llmemory.models import DocumentType, SearchType
@@ -75,7 +75,7 @@ class TestEmbeddingProviders:
     def test_provider_factory(self):
         """Test provider factory."""
         # Test with config
-        config = AwordMemoryConfig()
+        config = LLMemoryConfig()
         provider = EmbeddingProviderFactory.create_from_config("openai")
         assert provider.provider_id == "openai"
 
@@ -84,17 +84,17 @@ class TestEmbeddingProviders:
             EmbeddingProviderFactory.create_from_config("nonexistent")
 
 
-class TestAwordMemoryWithProviders:
-    """Test AwordMemory with multi-provider support."""
+class TestLLMemoryWithProviders:
+    """Test LLMemory with multi-provider support."""
 
     @pytest_asyncio.fixture
     async def memory_with_openai(self, test_db, memory_db):
-        """Create AwordMemory instance with OpenAI provider."""
+        """Create LLMemory instance with OpenAI provider."""
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             pytest.skip("OpenAI API key not available")
 
-        config = AwordMemoryConfig()
+        config = LLMemoryConfig()
         config.embedding = EmbeddingConfig(
             default_provider="openai",
             providers={
@@ -109,7 +109,7 @@ class TestAwordMemoryWithProviders:
 
         # Use test_db which has migrations already applied via memory_db fixture
         # test_db is an AsyncDatabaseManager, get connection string from it
-        memory = AwordMemory(connection_string=test_db.config.get_dsn(), config=config)
+        memory = LLMemory(connection_string=test_db.config.get_dsn(), config=config)
 
         await memory.initialize()
         yield memory
@@ -233,8 +233,8 @@ class TestLocalEmbeddingProvider:
 
     @pytest_asyncio.fixture
     async def memory_with_local(self, test_db, memory_db):
-        """Create AwordMemory instance with local provider."""
-        config = AwordMemoryConfig()
+        """Create LLMemory instance with local provider."""
+        config = LLMemoryConfig()
         config.embedding = EmbeddingConfig(
             default_provider="local-minilm",
             providers={
@@ -249,7 +249,7 @@ class TestLocalEmbeddingProvider:
 
         # Use test_db which has migrations already applied via memory_db fixture
         # test_db is an AsyncDatabaseManager, get connection string from it
-        memory = AwordMemory(connection_string=test_db.config.get_dsn(), config=config)
+        memory = LLMemory(connection_string=test_db.config.get_dsn(), config=config)
 
         await memory.initialize()
         yield memory

@@ -6,7 +6,7 @@ from typing import Dict, Tuple
 
 import pytest
 import pytest_asyncio
-from llmemory import AwordMemory, DocumentType, SearchType
+from llmemory import LLMemory, DocumentType, SearchType
 from llmemory.models import Document, SearchQuery
 
 
@@ -40,7 +40,7 @@ class TestSearchQuality:
     @pytest_asyncio.fixture
     async def memory_with_documents(
         self, memory_library
-    ) -> Tuple[AwordMemory, Dict[str, Document]]:
+    ) -> Tuple[LLMemory, Dict[str, Document]]:
         """Create memory instance and load test documents."""
         # Use the memory_library fixture which handles test database setup
         memory = memory_library

@@ -19,7 +19,7 @@ from pgdbm import AsyncDatabaseManager
 
 from .batch_processor import (BackgroundEmbeddingProcessor,
                               BatchEmbeddingProcessor)
-from .config import AwordMemoryConfig, get_config
+from .config import LLMemoryConfig, get_config
 from .embedding_providers import EmbeddingProvider, EmbeddingProviderFactory
 from .embeddings import EmbeddingGenerator
 from .exceptions import (ConfigurationError, DocumentNotFoundError,
@@ -36,8 +36,8 @@ from .validators import get_validator
 logger = logging.getLogger(__name__)
 
 
-class AwordMemory:
-    """Main library interface for aword-memory.
+class LLMemory:
+    """Main library interface for llmemory.
 
     This class provides a clean API for document ingestion, search, and management
     with support for asynchronous operations.
@@ -47,11 +47,11 @@ class AwordMemory:
         self,
         connection_string: Optional[str] = None,
         openai_api_key: Optional[str] = None,
-        config: Optional[AwordMemoryConfig] = None,
+        config: Optional[LLMemoryConfig] = None,
         db_manager: Optional[AsyncDatabaseManager] = None,
     ):
         """
-        Initialize the AwordMemory library.
+        Initialize the LLMemory library.
 
         Args:
             connection_string: PostgreSQL connection string (ignored if db_manager provided)
@@ -90,12 +90,12 @@ class AwordMemory:
         cls,
         db_manager: AsyncDatabaseManager,
         openai_api_key: Optional[str] = None,
-        config: Optional[AwordMemoryConfig] = None,
-    ) -> "AwordMemory":
+        config: Optional[LLMemoryConfig] = None,
+    ) -> "LLMemory":
         """
-        Create AwordMemory instance from existing AsyncDatabaseManager.
+        Create LLMemory instance from existing AsyncDatabaseManager.
 
-        This is the recommended way to use aword-memory when integrating
+        This is the recommended way to use llmemory when integrating
         with other services that share a database connection pool.
 
         Args:
@@ -105,7 +105,7 @@ class AwordMemory:
             config: Optional configuration object
 
         Returns:
-            AwordMemory instance configured for external db management
+            LLMemory instance configured for external db management
         """
         instance = cls(
             connection_string=None,
@@ -149,7 +149,7 @@ class AwordMemory:
         )
 
         self._initialized = True
-        logger.info("AwordMemory initialized successfully")
+        logger.info("LLMemory initialized successfully")
 
     async def close(self) -> None:
         """Close all connections and cleanup resources."""
@@ -160,7 +160,7 @@ class AwordMemory:
             await self._manager.close()
 
         self._initialized = False
-        logger.info("AwordMemory closed")
+        logger.info("LLMemory closed")
 
     # Document Management
 

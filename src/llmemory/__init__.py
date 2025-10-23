@@ -8,12 +8,12 @@ and semantic search capabilities. Supports multi-tenant deployments through
 PostgreSQL schema isolation.
 """
 
-from .config import AwordMemoryConfig, get_config, set_config
-from .exceptions import (AwordMemoryError, ChunkingError, ConfigurationError,
+from .config import LLMemoryConfig, get_config, set_config
+from .exceptions import (LLMemoryError, ChunkingError, ConfigurationError,
                          ConnectionError, DatabaseError, DocumentNotFoundError,
                          EmbeddingError, PermissionError, RateLimitError,
                          ResourceNotFoundError, SearchError, ValidationError)
-from .library import AwordMemory
+from .library import LLMemory
 from .models import (ChunkingConfig, DeleteResult, Document, DocumentAddResult,
                      DocumentChunk, DocumentListResult, DocumentType,
                      DocumentWithChunks, EmbeddingJob, EmbeddingStatus,
@@ -23,7 +23,7 @@ from .models import (ChunkingConfig, DeleteResult, Document, DocumentAddResult,
 __version__ = "0.2.0"
 __all__ = [
     # Main interface
-    "AwordMemory",
+    "LLMemory",
     # Models
     "Document",
     "DocumentChunk",
@@ -42,11 +42,11 @@ __all__ = [
     "OwnerStatistics",
     "DeleteResult",
     # Configuration
-    "AwordMemoryConfig",
+    "LLMemoryConfig",
     "get_config",
     "set_config",
     # Exceptions
-    "AwordMemoryError",
+    "LLMemoryError",
     "ValidationError",
     "ConfigurationError",
     "DatabaseError",

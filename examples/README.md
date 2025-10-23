@@ -22,10 +22,10 @@ These examples show the three main deployment patterns for llmemory:
 The simplest way to get started:
 
 ```python
-from llmemory import AwordMemory, DocumentType, SearchType
+from llmemory import LLMemory, DocumentType, SearchType
 
 # Initialize
-memory = AwordMemory(
+memory = LLMemory(
     connection_string="postgresql://localhost/mydb",
     openai_api_key="sk-..."
 )

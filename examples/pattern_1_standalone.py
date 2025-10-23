@@ -16,7 +16,7 @@ import asyncio
 import os
 from datetime import datetime
 
-from llmemory import AwordMemory, DocumentType, SearchType
+from llmemory import LLMemory, DocumentType, SearchType
 
 
 async def main():
@@ -26,7 +26,7 @@ async def main():
 
     # 1. Initialize llmemory with connection string
     print("1. Creating llmemory instance...")
-    memory = AwordMemory(
+    memory = LLMemory(
         connection_string=os.getenv("DATABASE_URL", "postgresql://localhost/memory_demo"),
         openai_api_key=os.getenv("OPENAI_API_KEY"),  # Optional - can use local embeddings
     )

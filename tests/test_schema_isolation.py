@@ -4,10 +4,10 @@ from datetime import datetime
 from uuid import uuid4
 
 import pytest
-from llmemory.config import AwordMemoryConfig
+from llmemory.config import LLMemoryConfig
 from llmemory.config import DatabaseConfig as MemoryDbConfig
 from llmemory.db import MemoryDatabase
-from llmemory.library import AwordMemory
+from llmemory.library import LLMemory
 from llmemory.manager import MemoryManager
 from llmemory.models import DocumentType, SearchQuery, SearchType
 
@@ -175,16 +175,16 @@ async def test_memory_db_with_schema(test_db_factory):
 
 @pytest.mark.asyncio
 async def test_library_with_custom_schema(test_db_factory):
-    """Test AwordMemory library with custom schema configuration."""
+    """Test LLMemory library with custom schema configuration."""
     # Create database with custom schema
     db_manager = await test_db_factory.create_db(suffix="library_schema", schema="library_test")
 
-    # Create AwordMemory instance with custom schema config
-    config = AwordMemoryConfig(
+    # Create LLMemory instance with custom schema config
+    config = LLMemoryConfig(
         database=MemoryDbConfig(schema_name="library_test", min_pool_size=5, max_pool_size=10)
     )
 
-    memory = AwordMemory(connection_string=db_manager.config.get_dsn(), config=config)
+    memory = LLMemory(connection_string=db_manager.config.get_dsn(), config=config)
 
     async with memory:
         # Add a document

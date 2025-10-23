@@ -7,7 +7,7 @@
 
 ### Current architecture
 - llmemory
-  - Library facade `AwordMemory` supports standalone or injected `pgdbm.AsyncDatabaseManager` (shared pool).
+  - Library facade `LLMemory` supports standalone or injected `pgdbm.AsyncDatabaseManager` (shared pool).
   - DB layer `MemoryDatabase` wraps `pgdbm`; runs own migrations and prepared statements; schema-aware via `{{tables.*}}`/`{{schema}}`.
   - Schema: pgvector + HNSW, full-text, hybrid search (RRF), semantic/hierarchical chunking, batch embedding processors.
 

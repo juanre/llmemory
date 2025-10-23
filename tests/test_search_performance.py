@@ -6,7 +6,7 @@ import time
 import pytest
 import pytest_asyncio
 from llmemory.embeddings import EmbeddingGenerator
-from llmemory.library import AwordMemory
+from llmemory.library import LLMemory
 from llmemory.models import DocumentType, SearchType
 from llmemory.search_optimizer import SearchMetrics
 
@@ -279,8 +279,8 @@ class MockEmbeddingGenerator(EmbeddingGenerator):
 
 @pytest_asyncio.fixture
 async def memory_library(test_db):
-    """Create AwordMemory instance for testing."""
-    memory = AwordMemory(connection_string=test_db["db_url"], openai_api_key="test-key")
+    """Create LLMemory instance for testing."""
+    memory = LLMemory(connection_string=test_db["db_url"], openai_api_key="test-key")
 
     await memory.initialize_async()
 

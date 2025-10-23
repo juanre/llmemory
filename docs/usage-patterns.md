@@ -17,11 +17,11 @@ llmemory is designed as a **self-contained library** that:
 When llmemory is used directly by a simple application:
 
 ```python
-from llmemory import AwordMemory, DocumentType
+from llmemory import LLMemory, DocumentType
 
 async def main():
     # llmemory creates and manages its own connection
-    memory = AwordMemory(
+    memory = LLMemory(
         connection_string="postgresql://localhost/myapp",
         openai_api_key="sk-..."
     )
@@ -58,7 +58,7 @@ When a library uses llmemory internally (e.g., a "document-processor" library):
 ```python
 # document_processor/processor.py
 from typing import Optional
-from llmemory import AwordMemory, DocumentType
+from llmemory import LLMemory, DocumentType
 from pgdbm import AsyncDatabaseManager
 
 class DocumentProcessor:
@@ -82,13 +82,13 @@ class DocumentProcessor:
 
         if db_manager:
             # Use provided db manager (Pattern 3)
-            self.memory = AwordMemory.from_db_manager(
+            self.memory = LLMemory.from_db_manager(
                 db_manager,
                 openai_api_key=openai_api_key
             )
         else:
             # Create own connection (Pattern 1)
-            self.memory = AwordMemory(
+            self.memory = LLMemory(
                 connection_string=connection_string,
                 openai_api_key=openai_api_key
             )
@@ -128,7 +128,7 @@ When a final application (like agent-engine) uses multiple services with a share
 ```python
 # main.py - Final application
 from pgdbm import AsyncDatabaseManager, DatabaseConfig
-from llmemory import AwordMemory
+from llmemory import LLMemory
 from document_processor import DocumentProcessor  # From Pattern 2
 
 async def setup_services():
@@ -148,7 +148,7 @@ async def setup_services():
     auth_db = AsyncDatabaseManager(pool=shared_pool, schema="auth")
 
     # 3. Initialize services with their db managers
-    llmemory = AwordMemory.from_db_manager(
+    llmemory = LLMemory.from_db_manager(
         memory_db,
         openai_api_key=os.getenv("OPENAI_API_KEY")
     )
@@ -261,15 +261,15 @@ await migration_manager.apply_pending_migrations()
 
 ### Q: What if I need custom schema names?
 
-Configure the schema in the AwordMemoryConfig:
+Configure the schema in the LLMemoryConfig:
 
 ```python
-from llmemory import AwordMemoryConfig
+from llmemory import LLMemoryConfig
 
-config = AwordMemoryConfig()
+config = LLMemoryConfig()
 config.database.schema_name = "my_custom_schema"
 
-memory = AwordMemory(
+memory = LLMemory(
     connection_string="...",
     config=config
 )

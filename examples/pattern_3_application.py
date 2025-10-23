@@ -17,7 +17,7 @@ from typing import Dict, Any
 from datetime import datetime
 
 from pgdbm import AsyncDatabaseManager, DatabaseConfig
-from llmemory import AwordMemory, DocumentType, SearchType
+from llmemory import LLMemory, DocumentType, SearchType
 
 # Import the library from Pattern 2 example
 # In a real app, this would be: from document_analyzer import DocumentAnalyzer
@@ -78,7 +78,7 @@ class ProductivityApp:
     - AuthService: User authentication
     - TaskService: Agent management
     - DocumentAnalyzer: Document analysis (from Pattern 2)
-    - AwordMemory: Direct document storage
+    - LLMemory: Direct document storage
     """
 
     def __init__(self, database_url: str):
@@ -138,7 +138,7 @@ class ProductivityApp:
         await self.services["analyzer"].initialize()
 
         # Direct llmemory instance
-        self.services["memory"] = AwordMemory.from_db_manager(
+        self.services["memory"] = LLMemory.from_db_manager(
             db_managers["memory"], openai_api_key=os.getenv("OPENAI_API_KEY")
         )
         await self.services["memory"].initialize()

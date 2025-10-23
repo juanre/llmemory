@@ -35,10 +35,10 @@ from llmemory.testing import *       # Memory service fixtures
 - **`sample_embeddings`**: Provides pre-generated embeddings for testing
 - **`create_embedding`**: Factory function to generate embeddings for any text
 
-#### AwordMemory Fixtures
+#### LLMemory Fixtures
 
-- **`memory_library`**: Creates a fully initialized AwordMemory instance
-- **`memory_library_with_embeddings`**: AwordMemory instance with pre-populated documents and embeddings
+- **`memory_library`**: Creates a fully initialized LLMemory instance
+- **`memory_library_with_embeddings`**: LLMemory instance with pre-populated documents and embeddings
 
 #### Test Data Fixtures
 

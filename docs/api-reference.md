@@ -2,18 +2,18 @@
 
 ## Overview
 
-The llmemory library provides a high-performance document memory system with vector search capabilities. The main interface is the `AwordMemory` class, which handles document storage, chunking, embedding generation, and semantic search.
+The llmemory library provides a high-performance document memory system with vector search capabilities. The main interface is the `LLMemory` class, which handles document storage, chunking, embedding generation, and semantic search.
 
 ## Core Classes
 
-### AwordMemory
+### LLMemory
 
 The main interface for interacting with the memory service.
 
 ```python
-from llmemory import AwordMemory
+from llmemory import LLMemory
 
-memory = AwordMemory(
+memory = LLMemory(
     connection_string="postgresql://user:pass@localhost/db",
     openai_api_key="sk-...",  # Optional if using local embeddings
 )
@@ -269,9 +269,9 @@ AWORD_LOG_LEVEL=INFO
 ### Programmatic Configuration
 
 ```python
-from llmemory import AwordMemoryConfig, set_config
+from llmemory import LLMemoryConfig, set_config
 
-config = AwordMemoryConfig()
+config = LLMemoryConfig()
 config.embedding.default_provider = "local-minilm"
 config.search.default_limit = 20
 config.database.max_pool_size = 30
@@ -285,7 +285,7 @@ The library defines specific exceptions for different error scenarios:
 
 ```python
 from llmemory import (
-    AwordMemoryError,  # Base exception
+    LLMemoryError,  # Base exception
     ValidationError,   # Invalid input
     DocumentNotFoundError,  # Document doesn't exist
     EmbeddingError,    # Embedding generation failed
@@ -297,7 +297,7 @@ try:
     await memory.add_document(...)
 except ValidationError as e:
     print(f"Invalid input: {e}")
-except AwordMemoryError as e:
+except LLMemoryError as e:
     print(f"Memory service error: {e}")
 ```
 
@@ -313,7 +313,7 @@ from pgdbm import AsyncDatabaseManager, DatabaseConfig
 config = DatabaseConfig(connection_string="postgresql://...")
 pool = await AsyncDatabaseManager.create_shared_pool(config)
 db_manager = AsyncDatabaseManager(pool=pool, schema="service1")
-service1 = AwordMemory.from_db_manager(db_manager)
+service1 = LLMemory.from_db_manager(db_manager)
 ```
 
 ### Custom Embedding Providers
@@ -321,7 +321,7 @@ service1 = AwordMemory.from_db_manager(db_manager)
 Configure multiple embedding providers:
 
 ```python
-config = AwordMemoryConfig()
+config = LLMemoryConfig()
 
 # Add a custom provider
 config.embedding.providers["custom"] = EmbeddingProviderConfig(
@@ -343,7 +343,7 @@ Access performance metrics:
 
 ```python
 # Enable monitoring
-memory = AwordMemory(
+memory = LLMemory(
     connection_string="...",
     enable_monitoring=True
 )
@@ -360,12 +360,12 @@ metrics = generate_latest()
 3. **Search Type**: Use `HYBRID` search for best results in most cases
 4. **Metadata**: Store searchable attributes in metadata for filtering
 5. **Owner IDs**: Use consistent workspace/tenant IDs for data isolation
-6. **Error Handling**: Always handle `AwordMemoryError` exceptions
+6. **Error Handling**: Always handle `LLMemoryError` exceptions
 7. **Resource Cleanup**: Use async context managers when possible
 
 ```python
 # Recommended pattern
-async with AwordMemory(connection_string="...") as memory:
+async with LLMemory(connection_string="...") as memory:
     await memory.add_document(...)
     results = await memory.search(...)
 ```

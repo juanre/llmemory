@@ -14,7 +14,7 @@ import pytest
 import pytest_asyncio
 from dotenv import load_dotenv
 from llmemory.db import MemoryDatabase
-from llmemory.library import AwordMemory
+from llmemory.library import LLMemory
 from llmemory.manager import MemoryManager
 from llmemory.models import DocumentType
 from openai import AsyncOpenAI
@@ -133,18 +133,18 @@ async def create_embedding(openai_client):
     return _create_embedding
 
 
-# AwordMemory fixtures
+# LLMemory fixtures
 
 
 @pytest_asyncio.fixture
-async def memory_library(test_db_factory) -> AsyncGenerator[AwordMemory, None]:
-    """Create AwordMemory instance for testing.
+async def memory_library(test_db_factory) -> AsyncGenerator[LLMemory, None]:
+    """Create LLMemory instance for testing.
 
     Args:
         test_db_factory: The pgdbm-utils test database factory fixture
 
     Yields:
-        AwordMemory: An initialized AwordMemory instance
+        LLMemory: An initialized LLMemory instance
     """
     openai_api_key = os.getenv("OPENAI_API_KEY")
     if not openai_api_key:
@@ -153,8 +153,8 @@ async def memory_library(test_db_factory) -> AsyncGenerator[AwordMemory, None]:
     # Create test database
     db_manager = await test_db_factory.create_db(suffix="memory_lib", schema="aword_memory")
 
-    # Create AwordMemory instance
-    memory = AwordMemory(
+    # Create LLMemory instance
+    memory = LLMemory(
         connection_string=db_manager.config.get_dsn(), openai_api_key=openai_api_key
     )
 
@@ -170,14 +170,14 @@ async def memory_library(test_db_factory) -> AsyncGenerator[AwordMemory, None]:
 @pytest_asyncio.fixture
 async def memory_library_with_embeddings(
     memory_library,
-) -> AsyncGenerator[AwordMemory, None]:
-    """Create AwordMemory instance with pre-populated documents and embeddings.
+) -> AsyncGenerator[LLMemory, None]:
+    """Create LLMemory instance with pre-populated documents and embeddings.
 
     Args:
         memory_library: The base memory_library fixture
 
     Yields:
-        AwordMemory: An AwordMemory instance with sample documents and embeddings
+        LLMemory: An LLMemory instance with sample documents and embeddings
     """
     memory = memory_library
 

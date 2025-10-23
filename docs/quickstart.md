@@ -22,11 +22,11 @@ pip install llmemory
 
 ```python
 import asyncio
-from llmemory import AwordMemory, DocumentType, SearchType
+from llmemory import LLMemory, DocumentType, SearchType
 
 async def main():
     # Initialize
-    memory = AwordMemory(
+    memory = LLMemory(
         connection_string="postgresql://localhost/mydb",
         openai_api_key="sk-..."  # Or use environment variable
     )
@@ -174,11 +174,11 @@ Here's the full example that you can copy and run:
 
 ```python
 import asyncio
-from llmemory import AwordMemory, DocumentType, SearchType
+from llmemory import LLMemory, DocumentType, SearchType
 
 async def main():
     # Initialize
-    memory = AwordMemory(
+    memory = LLMemory(
         connection_string="postgresql://localhost/mydb",
         openai_api_key="sk-..."
     )
@@ -263,14 +263,14 @@ To use local embeddings instead of OpenAI:
 export AWORD_EMBEDDING_PROVIDER=local-minilm
 
 # Or configure in code
-from llmemory import AwordMemoryConfig, set_config
+from llmemory import LLMemoryConfig, set_config
 
-config = AwordMemoryConfig()
+config = LLMemoryConfig()
 config.embedding.default_provider = "local-minilm"
 set_config(config)
 
 # Then use normally
-memory = AwordMemory(connection_string="postgresql://localhost/mydb")
+memory = LLMemory(connection_string="postgresql://localhost/mydb")
 ```
 
 ## Error Handling
@@ -279,7 +279,7 @@ Always handle potential errors:
 
 ```python
 from llmemory import (
-    AwordMemoryError,
+    LLMemoryError,
     ValidationError,
     DocumentNotFoundError
 )
@@ -290,7 +290,7 @@ except ValidationError as e:
     print(f"Invalid input: {e}")
 except DocumentNotFoundError as e:
     print(f"Document not found: {e}")
-except AwordMemoryError as e:
+except LLMemoryError as e:
     print(f"Memory service error: {e}")
 ```
 
@@ -298,7 +298,7 @@ except AwordMemoryError as e:
 
 1. **Use context managers** for automatic cleanup:
    ```python
-   async with AwordMemory(connection_string="...") as memory:
+   async with LLMemory(connection_string="...") as memory:
        # Your code here
        pass  # Automatically closes on exit
    ```

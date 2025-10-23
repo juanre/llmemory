@@ -95,7 +95,7 @@ memory_db_errors_total{error_type="..."}
 ```python
 from fastapi import FastAPI
 from prometheus_client import make_asgi_app
-from llmemory import AwordMemory
+from llmemory import LLMemory
 
 app = FastAPI()
 
@@ -104,7 +104,7 @@ metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
 
 # Initialize memory with monitoring
-memory = AwordMemory(
+memory = LLMemory(
     connection_string="postgresql://localhost/db",
     enable_monitoring=True
 )
@@ -273,7 +273,7 @@ logger.addHandler(logHandler)
 logger.setLevel(logging.INFO)
 
 # Use with memory service
-memory = AwordMemory(
+memory = LLMemory(
     connection_string="postgresql://localhost/db",
     log_level="INFO",
     log_slow_queries=True,
@@ -361,7 +361,7 @@ class AlertManager:
     def __init__(self, pagerduty_key: str):
         self.pd_session = APISession(pagerduty_key)
 
-    async def check_memory_health(self, memory: AwordMemory):
+    async def check_memory_health(self, memory: LLMemory):
         while True:
             try:
                 # Check search performance
@@ -410,10 +410,10 @@ class AlertManager:
 ```python
 import cProfile
 import pstats
-from llmemory import AwordMemory
+from llmemory import LLMemory
 
 def profile_search():
-    memory = AwordMemory(...)
+    memory = LLMemory(...)
 
     profiler = cProfile.Profile()
     profiler.enable()
@@ -436,7 +436,7 @@ from memory_profiler import profile
 import tracemalloc
 
 @profile
-async def memory_intensive_operation(memory: AwordMemory):
+async def memory_intensive_operation(memory: LLMemory):
     # Track memory allocations
     tracemalloc.start()
 
@@ -480,7 +480,7 @@ trace.get_tracer_provider().add_span_processor(span_processor)
 
 # Instrument memory service
 class TracedMemory:
-    def __init__(self, memory: AwordMemory):
+    def __init__(self, memory: LLMemory):
         self.memory = memory
 
     async def add_document(self, **kwargs):
@@ -505,7 +505,7 @@ class TracedMemory:
 from datetime import datetime, timedelta
 
 class HealthChecker:
-    def __init__(self, memory: AwordMemory):
+    def __init__(self, memory: LLMemory):
         self.memory = memory
         self.last_check = None
         self.status_cache = None

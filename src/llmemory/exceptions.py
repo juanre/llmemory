@@ -6,8 +6,8 @@
 from typing import Any, Dict, Optional
 
 
-class AwordMemoryError(Exception):
-    """Base exception for all aword-memory errors."""
+class LLMemoryError(Exception):
+    """Base exception for all llmemory errors."""
 
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         self.message = message
@@ -15,7 +15,7 @@ class AwordMemoryError(Exception):
         super().__init__(self.message)
 
 
-class ValidationError(AwordMemoryError):
+class ValidationError(LLMemoryError):
     """Raised when input validation fails."""
 
     def __init__(self, field: str, message: str, value: Any = None):
@@ -28,13 +28,13 @@ class ValidationError(AwordMemoryError):
         self.message = message
 
 
-class ConfigurationError(AwordMemoryError):
+class ConfigurationError(LLMemoryError):
     """Raised when configuration is invalid or missing."""
 
     pass
 
 
-class DatabaseError(AwordMemoryError):
+class DatabaseError(LLMemoryError):
     """Raised when database operations fail."""
 
     def __init__(
@@ -50,7 +50,7 @@ class DatabaseError(AwordMemoryError):
         super().__init__(message, details)
 
 
-class EmbeddingError(AwordMemoryError):
+class EmbeddingError(LLMemoryError):
     """Raised when embedding generation fails."""
 
     def __init__(self, message: str, provider: str = "openai", **kwargs):
@@ -62,7 +62,7 @@ class EmbeddingError(AwordMemoryError):
         super().__init__(message, details)
 
 
-class SearchError(AwordMemoryError):
+class SearchError(LLMemoryError):
     """Raised when search operations fail."""
 
     def __init__(self, message: str, search_type: Optional[str] = None, **kwargs):
@@ -70,7 +70,7 @@ class SearchError(AwordMemoryError):
         super().__init__(message, details)
 
 
-class ChunkingError(AwordMemoryError):
+class ChunkingError(LLMemoryError):
     """Raised when document chunking fails."""
 
     def __init__(self, message: str, strategy: Optional[str] = None, **kwargs):
@@ -78,7 +78,7 @@ class ChunkingError(AwordMemoryError):
         super().__init__(message, details)
 
 
-class ResourceNotFoundError(AwordMemoryError):
+class ResourceNotFoundError(LLMemoryError):
     """Raised when a requested resource is not found."""
 
     def __init__(self, resource_type: str, identifier: Any):
@@ -87,7 +87,7 @@ class ResourceNotFoundError(AwordMemoryError):
         super().__init__(message, details)
 
 
-class RateLimitError(AwordMemoryError):
+class RateLimitError(LLMemoryError):
     """Raised when rate limits are exceeded."""
 
     def __init__(self, message: str, retry_after: Optional[float] = None, **kwargs):
@@ -95,7 +95,7 @@ class RateLimitError(AwordMemoryError):
         super().__init__(message, details)
 
 
-class ConnectionError(AwordMemoryError):
+class ConnectionError(LLMemoryError):
     """Raised when connection to external services fails."""
 
     def __init__(self, service: str, message: str, **kwargs):
@@ -110,7 +110,7 @@ class DocumentNotFoundError(ResourceNotFoundError):
         super().__init__("Document", document_id)
 
 
-class PermissionError(AwordMemoryError):
+class PermissionError(LLMemoryError):
     """Raised when user doesn't have permission to access a resource."""
 
     def __init__(

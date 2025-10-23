@@ -17,7 +17,7 @@ import os
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
-from llmemory import AwordMemory, DocumentType, SearchType
+from llmemory import LLMemory, DocumentType, SearchType
 from pgdbm import AsyncDatabaseManager
 
 
@@ -59,12 +59,12 @@ class DocumentAnalyzer:
         if db_manager:
             # Shared pool mode - use provided db manager
             print(f"DocumentAnalyzer: Using shared pool mode")
-            self.memory = AwordMemory.from_db_manager(db_manager, openai_api_key=openai_api_key)
+            self.memory = LLMemory.from_db_manager(db_manager, openai_api_key=openai_api_key)
             self.mode = "shared_pool"
         else:
             # Standalone mode - create own connection
             print(f"DocumentAnalyzer: Using standalone mode")
-            self.memory = AwordMemory(
+            self.memory = LLMemory(
                 connection_string=connection_string, openai_api_key=openai_api_key
             )
             self.mode = "standalone"
