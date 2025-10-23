@@ -1,3 +1,6 @@
+# ABOUTME: Batch embedding generation coordinator managing concurrent requests with provider rate limits and retry logic.
+# ABOUTME: Orchestrates embedding generation across chunks with intelligent batching, error handling, and progress tracking.
+
 """Batch embedding generation with rate limiting and retries."""
 
 import logging
@@ -58,9 +61,9 @@ class EmbeddingGenerator:
         """Get information about the embedding model."""
         return {
             "provider_id": self.provider.provider_id,
-            "model_name": self.provider.model_name,
-            "dimension": self.provider.dimension,
-            "max_tokens": self.provider.max_tokens,
+            "model_name": self.provider.get_model_name(),
+            "dimension": self.provider.get_dimension(),
+            "max_tokens": self.provider.config.max_tokens_per_minute,
         }
 
     async def process_batch(

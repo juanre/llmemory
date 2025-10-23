@@ -1,3 +1,6 @@
+# ABOUTME: Monitoring and metrics collection using Prometheus for tracking search performance, embedding operations, and system health.
+# ABOUTME: Provides comprehensive metrics including latencies, throughput, error rates, and resource utilization with health checks.
+
 """Monitoring and metrics utilities for aword-memory.
 
 This module provides Prometheus metrics collection and health check endpoints

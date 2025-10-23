@@ -1,3 +1,6 @@
+# ABOUTME: Configuration management providing centralized settings for chunking, embeddings, search, and validation parameters.
+# ABOUTME: Supports environment variable overrides and provides type-safe configuration with sensible defaults for all components.
+
 """Configuration management for aword-memory library."""
 
 import os

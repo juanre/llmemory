@@ -1,3 +1,6 @@
+# ABOUTME: Database integration layer providing high-level async operations for llmemory using pgdbm.
+# ABOUTME: Manages document storage, chunk embeddings, search operations, and migration management with schema isolation.
+
 """Async database integration for aword-memory using pgdbm-utils."""
 
 import hashlib
@@ -6,7 +9,6 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-import re
 
 from pgdbm import (AsyncDatabaseManager, AsyncMigrationManager,
                       DatabaseConfig, MonitoredAsyncDatabaseManager)
@@ -147,21 +149,6 @@ class MemoryDatabase:
             """,
         )
 
-    def _validate_identifier(self, name: str) -> None:
-        """Validate SQL identifier to prevent injection via dynamic table names.
-
-        Accepts standard PostgreSQL identifier rules (letters, numbers, underscores; max 63 chars).
-        """
-        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]{0,62}$", name or ""):
-            raise ValueError(f"Invalid SQL identifier: {name}")
-
-    def _qualify_table_name(self, table_name: str) -> str:
-        """Safely qualify a table name with the configured schema if needed."""
-        self._validate_identifier(table_name)
-        if self.db.schema and self.db.schema != "public":
-            return f'"{self.db.schema}".{table_name}'
-        return table_name
-
         # Search queries
         self.db.add_prepared_statement(
             "get_provider_info",
@@ -268,8 +255,8 @@ class MemoryDatabase:
             # Use default provider
             query = self.db._prepare_query(
                 """
-                SELECT provider_id, table_name
-                , dimension FROM {{tables.embedding_providers}}
+                SELECT provider_id, table_name, dimension
+                FROM {{tables.embedding_providers}}
                 WHERE is_default = true
                 LIMIT 1
                 """
@@ -294,14 +281,17 @@ class MemoryDatabase:
         provider_dimension = int(provider_info.get("dimension", 0))
         if provider_dimension and len(embedding) != provider_dimension:
             logger.warning(
-                
                 f"Embedding dimension mismatch for provider {provider_info.get('provider_id')}: "
                 f"expected {provider_dimension}, got {len(embedding)}"
             )
             return False
 
-        # Insert embedding into provider-specific table using safe qualification
-        qualified_table = self._qualify_table_name(table_name)
+        # Manually qualify dynamic table name with proper quoting
+        # Table names are runtime-dynamic (from database), not compile-time static
+        if self.db.schema and self.db.schema != "public":
+            qualified_table = f'"{self.db.schema}"."{table_name}"'
+        else:
+            qualified_table = f'"{table_name}"'
 
         insert_query = f"""
         INSERT INTO {qualified_table} (chunk_id, embedding)
@@ -310,8 +300,6 @@ class MemoryDatabase:
         """
 
         try:
-            # Apply schema template
-            insert_query = self.db._prepare_query(insert_query)
             # Convert embedding list to PostgreSQL array format
             embedding_str = f"[{','.join(map(str, embedding))}]"
             await conn.execute(insert_query, chunk_id, embedding_str)
@@ -347,10 +335,13 @@ class MemoryDatabase:
 
         embedding_table = provider_info["table_name"]
 
-        # Build the table reference with proper schema qualification
-        qualified_embedding_table = self._qualify_table_name(embedding_table)
+        # Manually qualify dynamic embedding table with proper quoting
+        if self.db.schema and self.db.schema != "public":
+            qualified_embedding = f'"{self.db.schema}"."{embedding_table}"'
+        else:
+            qualified_embedding = f'"{embedding_table}"'
 
-        # Build query dynamically
+        # Build query with mix of static templates and dynamic qualified table
         query_parts = [
             f"""
         SELECT
@@ -361,7 +352,7 @@ class MemoryDatabase:
             1 - (e.embedding <=> $1::vector) as similarity
         FROM {{{{tables.document_chunks}}}} c
         JOIN {{{{tables.documents}}}} d ON c.document_id = d.document_id
-        JOIN {qualified_embedding_table} e ON c.chunk_id = e.chunk_id
+        JOIN {qualified_embedding} e ON c.chunk_id = e.chunk_id
         WHERE d.owner_id = $2
         """
         ]
@@ -576,8 +567,12 @@ class MemoryDatabase:
 
             if provider_info:
                 table_name = provider_info["table_name"]
-                # Build the table reference with proper schema qualification
-                qualified_table = self._qualify_table_name(table_name)
+
+                # Manually qualify dynamic table with proper quoting
+                if self.db.schema and self.db.schema != "public":
+                    qualified_table = f'"{self.db.schema}"."{table_name}"'
+                else:
+                    qualified_table = f'"{table_name}"'
 
                 return await self.db.fetch_all(
                     f"""
@@ -732,8 +727,11 @@ class MemoryDatabase:
 
         table_name = provider_info["table_name"]
 
-        # Build the table reference with proper schema qualification
-        qualified_table = self._qualify_table_name(table_name)
+        # Manually qualify dynamic table with proper quoting
+        if self.db.schema and self.db.schema != "public":
+            qualified_table = f'"{self.db.schema}"."{table_name}"'
+        else:
+            qualified_table = f'"{table_name}"'
 
         return await self.db.fetch_all(
             f"""

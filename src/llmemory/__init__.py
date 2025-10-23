@@ -1,3 +1,6 @@
+# ABOUTME: Main package entry point exporting public API for llmemory document memory system with vector search.
+# ABOUTME: Provides MemoryLibrary class and all public models, exceptions, and configuration objects for easy import.
+
 """Aword Memory - Document memory system with vector search.
 
 A standalone library that provides document ingestion, chunking, embedding generation,

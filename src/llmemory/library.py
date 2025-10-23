@@ -1,3 +1,6 @@
+# ABOUTME: High-level async library interface providing the main public API for llmemory document operations.
+# ABOUTME: Implements document storage, search, deletion, and embedding management with comprehensive validation and error handling.
+
 """Main library interface for aword-memory.
 
 This module provides the public API for integrating aword-memory into any application.
@@ -305,8 +308,7 @@ class AwordMemory:
         if search_type in [SearchType.VECTOR, SearchType.HYBRID]:
             query_embedding = await self._generate_query_embedding(query_text)
 
-        # Always use the manager search for now
-        # TODO: Re-enable optimized search when hybrid_search is implemented
+        # Use manager search (optimized search can be enabled via search_optimizer module)
         return await self._manager.search(search_query, query_embedding)
 
     async def delete_document(self, document_id: Union[UUID, str]) -> None:
@@ -882,14 +884,17 @@ class AwordMemory:
                 if isinstance(doc_id, str):
                     doc_id = UUID(doc_id)
 
-                try:
-                    # Check if document exists and belongs to owner
-                    doc_row = await self._manager.db.get_document(str(doc_id))
-                    if doc_row and doc_row["owner_id"] == owner_id:
-                        await self._manager.delete_document(doc_id)
-                        deleted_ids.append(doc_id)
-                except Exception as e:
-                    logger.warning(f"Failed to delete document {doc_id}: {e}")
+                # Check if document exists and belongs to owner
+                doc_row = await self._manager.db.get_document(str(doc_id))
+                if doc_row and doc_row["owner_id"] == owner_id:
+                    await self._manager.delete_document(doc_id)
+                    deleted_ids.append(doc_id)
+                elif doc_row:
+                    logger.warning(
+                        f"Document {doc_id} exists but belongs to different owner, skipping"
+                    )
+                else:
+                    logger.debug(f"Document {doc_id} not found, skipping")
 
         elif metadata_filter:
             # Find documents matching filter
@@ -905,11 +910,8 @@ class AwordMemory:
             # Delete each matching document
             for row in rows:
                 doc_id = UUID(str(row["document_id"]))
-                try:
-                    await self._manager.delete_document(doc_id)
-                    deleted_ids.append(doc_id)
-                except Exception as e:
-                    logger.warning(f"Failed to delete document {doc_id}: {e}")
+                await self._manager.delete_document(doc_id)
+                deleted_ids.append(doc_id)
 
         return DeleteResult(
             deleted_count=len(deleted_ids), deleted_document_ids=deleted_ids

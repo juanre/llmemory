@@ -1,3 +1,6 @@
+# ABOUTME: Embedding provider implementations supporting OpenAI API and local Sentence Transformers models with rate limiting.
+# ABOUTME: Handles API key management, request throttling, caching, and provider-specific configuration for embedding generation.
+
 """Embedding providers for aword-memory.
 
 This module provides different embedding providers (OpenAI, local models, etc.)

@@ -1,3 +1,6 @@
+# ABOUTME: Batch processing system for embedding generation with intelligent rate limiting and exponential backoff retry logic.
+# ABOUTME: Handles concurrent batch operations with provider-specific rate limits and error recovery for production resilience.
+
 """Batch processing for embeddings with rate limiting and retry logic.
 
 Based on agent-engine integration requirements:
@@ -333,7 +336,7 @@ class BackgroundEmbeddingProcessor:
         self.poll_interval = poll_interval
         self.batch_timeout = batch_timeout
         self._running = False
-        self._task: Optional[asyncio.Agent] = None
+        self._task: Optional[asyncio.Task] = None
 
     async def start(
         self,

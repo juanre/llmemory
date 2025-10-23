@@ -1,3 +1,6 @@
+# ABOUTME: Input validation utilities providing comprehensive validation for documents, chunks, metadata, and search parameters.
+# ABOUTME: Implements security-focused validation including depth limits, key sanitization, and size constraints.
+
 """Input validation utilities for aword-memory library."""
 
 import re
@@ -199,8 +202,60 @@ class InputValidator:
             type(strategy).__name__,
         )
 
+    def _check_metadata_depth(self, obj: Any, current_depth: int = 0, max_depth: int = 10) -> None:
+        """Recursively check nesting depth of metadata to prevent DoS attacks."""
+        if current_depth > max_depth:
+            raise ValidationError(
+                "metadata",
+                f"exceeds maximum nesting depth of {max_depth}",
+                f"depth {current_depth}",
+            )
+
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                self._check_metadata_depth(value, current_depth + 1, max_depth)
+        elif isinstance(obj, list):
+            for item in obj:
+                self._check_metadata_depth(item, current_depth + 1, max_depth)
+
+    def _validate_metadata_keys(self, metadata: Dict[str, Any]) -> None:
+        """Validate metadata keys to prevent injection attacks."""
+        import json
+
+        # Allowed characters in keys: alphanumeric, underscore, hyphen, period
+        key_pattern = re.compile(r'^[a-zA-Z0-9_.-]+$')
+
+        def check_keys(obj: Any, path: str = ""):
+            if isinstance(obj, dict):
+                for key, value in obj.items():
+                    if not key:
+                        raise ValidationError(
+                            "metadata",
+                            "contains empty key",
+                            f"at path {path}",
+                        )
+                    if len(key) > 100:
+                        raise ValidationError(
+                            "metadata",
+                            "contains key longer than 100 characters",
+                            f"key '{key[:50]}...' at path {path}",
+                        )
+                    if not key_pattern.match(key):
+                        raise ValidationError(
+                            "metadata",
+                            "contains invalid characters in key (only alphanumeric, _, -, . allowed)",
+                            f"key '{key}' at path {path}",
+                        )
+                    new_path = f"{path}.{key}" if path else key
+                    check_keys(value, new_path)
+            elif isinstance(obj, list):
+                for i, item in enumerate(obj):
+                    check_keys(item, f"{path}[{i}]")
+
+        check_keys(metadata)
+
     def validate_metadata(self, metadata: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-        """Validate metadata dictionary."""
+        """Validate metadata dictionary with comprehensive security checks."""
         if metadata is None:
             return {}
 
@@ -208,6 +263,12 @@ class InputValidator:
             raise ValidationError(
                 "metadata", "must be a dictionary", type(metadata).__name__
             )
+
+        # Validate keys
+        self._validate_metadata_keys(metadata)
+
+        # Check nesting depth
+        self._check_metadata_depth(metadata)
 
         # Check size
         import json
@@ -264,7 +325,15 @@ class InputValidator:
                 "embedding", "must be a list or tuple", type(embedding).__name__
             )
 
-        expected_dimension = expected_dim or get_config().embedding.dimension
+        # Get expected dimension from default provider if not specified
+        if expected_dim is None:
+            config = get_config()
+            default_provider_id = config.embedding.default_provider
+            default_provider = config.embedding.providers.get(default_provider_id)
+            expected_dimension = default_provider.dimension if default_provider else 1536
+        else:
+            expected_dimension = expected_dim
+
         if len(embedding) != expected_dimension:
             raise ValidationError(
                 "embedding",
@@ -290,7 +359,12 @@ class InputValidator:
         if batch_size <= 0:
             raise ValidationError("batch_size", "must be positive", batch_size)
 
-        max_batch = get_config().embedding.batch_size
+        # Get max batch size from default provider
+        config = get_config()
+        default_provider_id = config.embedding.default_provider
+        default_provider = config.embedding.providers.get(default_provider_id)
+        max_batch = default_provider.batch_size if default_provider else 100
+
         if batch_size > max_batch:
             raise ValidationError(
                 "batch_size", f"cannot exceed {max_batch}", batch_size

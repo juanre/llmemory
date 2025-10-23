@@ -1,3 +1,6 @@
+# ABOUTME: High-level async manager coordinating document operations, embedding generation, and search across llmemory.
+# ABOUTME: Orchestrates document lifecycle from ingestion through chunking, enrichment, embedding, and retrieval with validation.
+
 """High-level async manager for aword-memory operations."""
 
 import hashlib
@@ -483,7 +486,10 @@ class MemoryManager:
             if result:
                 provider_id = result["provider_id"]
             else:
-                provider_id = "openai-text-embedding-3-small"  # fallback
+                raise ValueError(
+                    "No default embedding provider configured. "
+                    "Please configure a default provider in the embedding_providers table."
+                )
 
         query = self.db.db_manager._prepare_query(
             """
@@ -560,7 +566,10 @@ class MemoryManager:
                 if result:
                     resolved_provider_id = result["provider_id"]
                 else:
-                    resolved_provider_id = "openai-text-embedding-3-small"  # fallback
+                    raise ValueError(
+                        "No default embedding provider configured. "
+                        "Please configure a default provider in the embedding_providers table."
+                    )
 
             queue_query = self.db.db_manager._prepare_query(
                 """

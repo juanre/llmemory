@@ -1,3 +1,6 @@
+# ABOUTME: Multi-language support providing language detection, text normalization, and language-specific text processing.
+# ABOUTME: Handles 50+ languages with confidence scoring, Unicode normalization, and language-aware sentence splitting.
+
 """Multi-language support for document processing.
 
 This module provides language detection, normalization, and language-specific

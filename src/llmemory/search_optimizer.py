@@ -1,3 +1,6 @@
+# ABOUTME: Search optimization providing high-performance vector, text, and hybrid search with caching and metrics.
+# ABOUTME: Implements Reciprocal Rank Fusion, concurrent query execution, and Prometheus monitoring for sub-100ms p95 latency.
+
 """Search optimization for high-performance queries.
 
 Based on agent-engine integration requirements:
@@ -248,17 +251,8 @@ class OptimizedAsyncSearch:
             if METRICS_ENABLED:
                 active_searches.dec()
 
-    def _validate_identifier(self, name: str) -> None:
-        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]{0,62}$", name or ""):
-            raise ValueError(f"Invalid SQL identifier: {name}")
-
-    def _qualify_table_name(self, table_name: str) -> str:
-        self._validate_identifier(table_name)
-        if getattr(self.db, "schema", None) and self.db.schema != "public":
-            return f'"{self.db.schema}".{table_name}'
-        return table_name
-
     async def _get_default_embedding_table(self) -> Optional[str]:
+        """Get the default embedding provider table name (unqualified)."""
         row = await self.db.fetch_one(
             """
             SELECT table_name
@@ -269,7 +263,7 @@ class OptimizedAsyncSearch:
         )
         if not row:
             return None
-        return self._qualify_table_name(row["table_name"])  # type: ignore[index]
+        return row["table_name"]  # type: ignore[index]
 
     async def _optimized_vector_search(self, query: SearchQuery) -> List[Dict[str, Any]]:
         """
@@ -322,6 +316,12 @@ class OptimizedAsyncSearch:
         limit_param = next_param
         params.append(query.limit * 2)
 
+        # Manually qualify dynamic embedding table with proper quoting
+        if getattr(self.db, "schema", None) and self.db.schema != "public":
+            qualified_embedding = f'"{self.db.schema}"."{embedding_table}"'
+        else:
+            qualified_embedding = f'"{embedding_table}"'
+
         final_query = f"""
         WITH vector_search AS (
             SELECT
@@ -331,9 +331,9 @@ class OptimizedAsyncSearch:
                 c.metadata,
                 c.chunk_level,
                 1 - (e.embedding <=> $1::vector) as similarity
-            FROM {{tables.document_chunks}} c
-            JOIN {{tables.documents}} d ON c.document_id = d.document_id
-            JOIN {embedding_table} e ON e.chunk_id = c.chunk_id
+            FROM {{{{tables.document_chunks}}}} c
+            JOIN {{{{tables.documents}}}} d ON c.document_id = d.document_id
+            JOIN {qualified_embedding} e ON e.chunk_id = c.chunk_id
             WHERE d.owner_id = $2
             {' '.join(filters)}
             ORDER BY e.embedding <=> ${filters_order_param}::vector

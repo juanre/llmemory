@@ -1,3 +1,6 @@
+# ABOUTME: Test utilities and pytest fixtures for testing llmemory integrations with database setup, cleanup, and helpers.
+# ABOUTME: Provides fixtures for isolated test databases, sample documents, and assertion helpers using pgdbm test patterns.
+
 """Test fixtures and utilities for llmemory.
 
 This module provides reusable test fixtures that can be imported by users

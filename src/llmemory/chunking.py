@@ -1,3 +1,6 @@
+# ABOUTME: Advanced document chunking strategies including fixed-size, semantic, hierarchical, and language-aware chunking.
+# ABOUTME: Provides flexible chunking with overlap, metadata preservation, and optimization for embedding quality and retrieval.
+
 """Advanced chunking strategies for document processing."""
 
 import re
