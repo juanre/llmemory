@@ -155,8 +155,7 @@ class AwordMemory:
         """Close all connections and cleanup resources."""
         if self._background_processor:
             await self._background_processor.stop()
-        if self._batch_processor:
-            await self._batch_processor.close()
+        # Note: BatchEmbeddingProcessor has no close() method - no resources to clean up
         if self._manager:
             await self._manager.close()
 

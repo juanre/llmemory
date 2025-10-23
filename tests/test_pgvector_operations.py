@@ -161,15 +161,14 @@ class TestPgvectorOperations:
             metadata={"test": "constraint"},
         )
 
-        # Try to insert vector with wrong dimensions (should fail)
-        wrong_vec = [1.0] * 100  # Wrong dimension
+        # Try to insert vector with wrong dimensions (should raise ValueError)
+        wrong_vec = [1.0] * 100  # Wrong dimension (should be 1536)
 
-        # This should fail with appropriate error
-        success = await memory_db.insert_chunk_embedding(
-            chunk_id, wrong_vec, provider_id="openai-text-embedding-3-small"
-        )
-
-        assert success is False  # Should fail due to dimension mismatch
+        # This should raise ValueError for dimension mismatch
+        with pytest.raises(ValueError, match="Embedding dimension mismatch"):
+            await memory_db.insert_chunk_embedding(
+                chunk_id, wrong_vec, provider_id="openai-text-embedding-3-small"
+            )
 
     async def test_null_embeddings(self, memory_db, memory_manager):
         """Test handling of chunks without embeddings."""

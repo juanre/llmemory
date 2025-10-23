@@ -345,44 +345,47 @@ class MemoryManager:
             metadata=metadata,
         )
 
-        # Check if chunk already exists for this document
+        # Use INSERT ON CONFLICT to handle deduplication atomically
+        # First try to insert, if conflict get existing chunk_id
         query = self.db.db_manager._prepare_query(
-            "SELECT chunk_id FROM {{tables.document_chunks}} WHERE document_id = $1 AND content_hash = $2"
-        )
-        existing = await conn.fetchrow(query, str(document_id), content_hash)
-
-        if existing:
-            logger.debug(f"Chunk already exists with hash {content_hash}")
-            chunk.chunk_id = UUID(str(existing["chunk_id"]))
-        else:
-            # Insert new chunk
-            query = self.db.db_manager._prepare_query(
-                """
-            INSERT INTO {{tables.document_chunks}} (
-                chunk_id, document_id, parent_chunk_id, chunk_index,
-                chunk_level, content, content_hash, token_count, metadata
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
-            RETURNING chunk_id, created_at
             """
+            WITH inserted AS (
+                INSERT INTO {{tables.document_chunks}} (
+                    chunk_id, document_id, parent_chunk_id, chunk_index,
+                    chunk_level, content, content_hash, token_count, metadata
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
+                ON CONFLICT (document_id, content_hash) DO NOTHING
+                RETURNING chunk_id, created_at
             )
+            SELECT chunk_id, created_at FROM inserted
+            UNION ALL
+            SELECT chunk_id, created_at FROM {{tables.document_chunks}}
+            WHERE document_id = $2 AND content_hash = $7
+            AND NOT EXISTS (SELECT 1 FROM inserted)
+            LIMIT 1
+            """
+        )
 
-            result = await conn.fetchrow(
-                query,
-                str(chunk.chunk_id),
-                str(chunk.document_id),
-                str(chunk.parent_chunk_id) if chunk.parent_chunk_id else None,
-                chunk.chunk_index,
-                chunk.chunk_level,
-                chunk.content,
-                chunk.content_hash,
-                chunk.token_count,
-                json.dumps(chunk.metadata),
-            )
+        result = await conn.fetchrow(
+            query,
+            str(chunk.chunk_id),
+            str(chunk.document_id),
+            str(chunk.parent_chunk_id) if chunk.parent_chunk_id else None,
+            chunk.chunk_index,
+            chunk.chunk_level,
+            chunk.content,
+            chunk.content_hash,
+            chunk.token_count,
+            json.dumps(chunk.metadata),
+        )
 
-            chunk.created_at = result["created_at"]
+        # Update chunk with database values
+        if result:
+            chunk.chunk_id = UUID(str(result["chunk_id"]))
+            chunk.created_at = result.get("created_at")
 
-            # Queue for embedding generation
-            await self._queue_embedding_job(chunk.chunk_id, conn=conn)
+        # Queue for embedding generation
+        await self._queue_embedding_job(chunk.chunk_id, conn=conn)
 
         return chunk
 

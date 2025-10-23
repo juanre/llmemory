@@ -316,9 +316,10 @@ class OptimizedAsyncSearch:
         limit_param = next_param
         params.append(query.limit * 2)
 
-        # Manually qualify dynamic embedding table with proper quoting
-        if getattr(self.db, "schema", None) and self.db.schema != "public":
-            qualified_embedding = f'"{self.db.schema}"."{embedding_table}"'
+        # Qualify dynamic embedding table (runtime from database)
+        schema = getattr(self.db, "schema", None)
+        if schema and schema != "public":
+            qualified_embedding = f'"{schema}"."{embedding_table}"'
         else:
             qualified_embedding = f'"{embedding_table}"'
 

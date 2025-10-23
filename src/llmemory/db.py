@@ -73,15 +73,19 @@ async def _ensure_pgvector_extension(db: AsyncDatabaseManager) -> None:
         )
 
         if not result:
-            # Enable pgvector extension
-            # Note: This requires superuser privileges
+            # Enable pgvector extension (requires superuser privileges)
             await db.execute("CREATE EXTENSION IF NOT EXISTS vector")
             logger.info("pgvector extension enabled successfully")
+
+        # Verify vector operations actually work
+        await db.fetch_value("SELECT '[1,2,3]'::vector <=> '[1,2,3]'::vector")
+
     except Exception as e:
-        logger.warning(
-            f"Could not enable pgvector extension: {e}. "
-            "Make sure pgvector is installed and you have necessary privileges."
-        )
+        raise ValueError(
+            f"pgvector extension not available or not working: {e}. "
+            "Install pgvector extension: CREATE EXTENSION vector; "
+            "Ensure the extension is properly installed in PostgreSQL."
+        ) from e
 
 
 class MemoryDatabase:
@@ -159,6 +163,16 @@ class MemoryDatabase:
             LIMIT 1
             """,
         )
+
+    def _qualify_table(self, table_name: str) -> str:
+        """Qualify runtime-dynamic table name with schema.
+
+        For use with embedding provider tables that are created dynamically at runtime.
+        Static tables should use {{tables.tablename}} template syntax instead.
+        """
+        if self.db.schema and self.db.schema != "public":
+            return f'"{self.db.schema}"."{table_name}"'
+        return f'"{table_name}"'
 
     async def apply_migrations(self) -> Dict[str, Any]:
         """Apply database migrations."""
@@ -280,18 +294,13 @@ class MemoryDatabase:
         # Validate embedding dimension
         provider_dimension = int(provider_info.get("dimension", 0))
         if provider_dimension and len(embedding) != provider_dimension:
-            logger.warning(
+            raise ValueError(
                 f"Embedding dimension mismatch for provider {provider_info.get('provider_id')}: "
                 f"expected {provider_dimension}, got {len(embedding)}"
             )
-            return False
 
-        # Manually qualify dynamic table name with proper quoting
-        # Table names are runtime-dynamic (from database), not compile-time static
-        if self.db.schema and self.db.schema != "public":
-            qualified_table = f'"{self.db.schema}"."{table_name}"'
-        else:
-            qualified_table = f'"{table_name}"'
+        # Qualify dynamic table name (runtime from database, not compile-time static)
+        qualified_table = self._qualify_table(table_name)
 
         insert_query = f"""
         INSERT INTO {qualified_table} (chunk_id, embedding)
@@ -334,12 +343,7 @@ class MemoryDatabase:
             return []  # No default provider configured
 
         embedding_table = provider_info["table_name"]
-
-        # Manually qualify dynamic embedding table with proper quoting
-        if self.db.schema and self.db.schema != "public":
-            qualified_embedding = f'"{self.db.schema}"."{embedding_table}"'
-        else:
-            qualified_embedding = f'"{embedding_table}"'
+        qualified_embedding = self._qualify_table(embedding_table)
 
         # Build query with mix of static templates and dynamic qualified table
         query_parts = [
@@ -567,12 +571,7 @@ class MemoryDatabase:
 
             if provider_info:
                 table_name = provider_info["table_name"]
-
-                # Manually qualify dynamic table with proper quoting
-                if self.db.schema and self.db.schema != "public":
-                    qualified_table = f'"{self.db.schema}"."{table_name}"'
-                else:
-                    qualified_table = f'"{table_name}"'
+                qualified_table = self._qualify_table(table_name)
 
                 return await self.db.fetch_all(
                     f"""
@@ -726,12 +725,7 @@ class MemoryDatabase:
             return []
 
         table_name = provider_info["table_name"]
-
-        # Manually qualify dynamic table with proper quoting
-        if self.db.schema and self.db.schema != "public":
-            qualified_table = f'"{self.db.schema}"."{table_name}"'
-        else:
-            qualified_table = f'"{table_name}"'
+        qualified_table = self._qualify_table(table_name)
 
         return await self.db.fetch_all(
             f"""
