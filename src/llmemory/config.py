@@ -215,6 +215,12 @@ class LLMemoryConfig:
                     return value
             return None
 
+        def env_bool(*names: str) -> Optional[bool]:
+            raw = env_var(*names)
+            if raw is None:
+                return None
+            return raw.lower() in {"1", "true", "yes", "on"}
+
         # Default provider
         if provider := env_var("LLMEMORY_EMBEDDING_PROVIDER", "AWORD_EMBEDDING_PROVIDER"):
             config.embedding.default_provider = provider
@@ -279,6 +285,21 @@ class LLMemoryConfig:
 
         if env_var("LLMEMORY_DISABLE_METRICS", "AWORD_DISABLE_METRICS"):
             config.enable_metrics = False
+
+        if (val := env_bool("LLMEMORY_ENABLE_QUERY_EXPANSION", "AWORD_ENABLE_QUERY_EXPANSION")) is not None:
+            config.search.enable_query_expansion = val
+
+        if (val := env_bool("LLMEMORY_ENABLE_RERANK", "AWORD_ENABLE_RERANK")) is not None:
+            config.search.enable_rerank = val
+
+        if (val := env_var("LLMEMORY_RERANK_TOP_K", "AWORD_RERANK_TOP_K")):
+            config.search.rerank_top_k = int(val)
+
+        if (val := env_var("LLMEMORY_RERANK_RETURN_K", "AWORD_RERANK_RETURN_K")):
+            config.search.rerank_return_k = int(val)
+
+        if (val := env_bool("LLMEMORY_ENABLE_CHUNK_SUMMARIES", "AWORD_ENABLE_CHUNK_SUMMARIES")) is not None:
+            config.chunking.enable_chunk_summaries = val
 
         return config
 

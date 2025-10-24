@@ -93,12 +93,20 @@ Search for relevant document chunks.
 
 **Parameters:**
 - `owner_id` (str): Workspace identifier
-- `query_text` (str): Search query
-- `search_type` (SearchType): VECTOR, TEXT, or HYBRID
-- `limit` (int): Max results (default: 10)
-- `metadata_filter` (dict, optional): Filter results
+- `query_text` (str): Search query text
+- `search_type` (SearchType): `VECTOR`, `TEXT`, or `HYBRID`
+- `limit` (int, optional): Max results (default: 10)
+- `metadata_filter` (dict, optional): Filter results by JSONB metadata
+- `id_at_origin` / `id_at_origins` (str / list[str], optional): Filter by specific origin IDs
+- `date_from` / `date_to` (datetime, optional): Restrict by document date
+- `include_parent_context` (bool, optional): Attach neighbouring chunks to each hit
+- `context_window` (int, optional): Number of neighbouring chunks to include when context is requested
+- `query_expansion` (bool, optional): Generate multiple query variants before retrieval (defaults to config)
+- `max_query_variants` (int, optional): Cap the number of generated variants
+- `rerank` (bool, optional): Apply the configured reranker (defaults to config)
+- `rerank_top_k` / `rerank_return_k` (int, optional): Control reranker candidate/return counts
 
-**Returns:** List of `SearchResult` objects
+**Returns:** List of `SearchResult` objects enriched with metadata, summaries, and scoring diagnostics
 
 ```python
 results = await memory.search(
@@ -198,11 +206,26 @@ class SearchResult:
     chunk_id: str
     document_id: str
     content: str
+    summary: Optional[str]
     score: float
-    chunk_level: int
-    parent_chunk_id: Optional[str]
+    similarity: Optional[float]
+    text_rank: Optional[float]
+    rrf_score: Optional[float]
+    rerank_score: Optional[float]
     metadata: Dict[str, Any]
+    parent_chunks: List[DocumentChunk]
 ```
+
+### SearchQuery
+
+Advanced callers can instantiate `SearchQuery` directly. Key fields include:
+
+- `enable_query_expansion` / `max_query_variants`: control multi-query behaviour.
+- `rerank`, `rerank_model`, `rerank_top_k`, `rerank_return_k`: configure reranking strategy.
+- `query_variants`: populated by the library with the variants executed (useful for logging).
+- `include_parent_context`, `context_window`: fetch neighbouring chunks for prompt grounding.
+- `metadata_filter`, `id_at_origin`, `id_at_origins`, `date_from`, `date_to`: apply fine-grained filters.
+- `summary`: each `SearchResult` contains the chunk synopsis when summaries are enabled during ingestion.
 
 ### DocumentAddResult
 Result of adding a document:
@@ -261,6 +284,11 @@ LLMEMORY_DB_MAX_POOL_SIZE=20
 
 # Search Settings
 LLMEMORY_SEARCH_CACHE_TTL=3600
+LLMEMORY_ENABLE_QUERY_EXPANSION=1
+LLMEMORY_ENABLE_RERANK=1
+LLMEMORY_ENABLE_CHUNK_SUMMARIES=1
+LLMEMORY_RERANK_TOP_K=50
+LLMEMORY_RERANK_RETURN_K=15
 
 # Logging
 LLMEMORY_LOG_LEVEL=INFO
@@ -275,6 +303,9 @@ config = LLMemoryConfig()
 config.embedding.default_provider = "local-minilm"
 config.search.default_limit = 20
 config.database.max_pool_size = 30
+config.search.enable_query_expansion = True
+config.search.enable_rerank = True
+config.chunking.enable_chunk_summaries = True
 
 set_config(config)
 ```

@@ -87,6 +87,65 @@ await memory._manager.db.apply_migrations()
 
 ## Framework Integration
 
+### Advanced Retrieval Configuration
+
+llmemory ships with three opt-in levers you can enable globally or per request:
+
+- **Query expansion** – generates semantic + keyword variants before retrieval.
+- **Reranking** – refines the final hit list using a pluggable reranker callback.
+- **Chunk summaries** – captures short synopses during ingestion and returns them with each search result.
+
+Enable them globally via configuration:
+
+```python
+from llmemory import LLMemory, LLMemoryConfig
+
+config = LLMemoryConfig()
+config.chunking.enable_chunk_summaries = True
+config.search.enable_query_expansion = True
+config.search.enable_rerank = True
+
+memory = LLMemory(connection_string="postgresql://localhost/mydb", config=config)
+await memory.initialize()
+```
+
+Or toggle them per-call when you need extra precision:
+
+```python
+results = await memory.search(
+    owner_id=owner_id,
+    query_text=query_text,
+    search_type="hybrid",
+    query_expansion=True,
+    rerank=True,
+)
+
+for hit in results:
+    print(hit.summary, hit.score)
+```
+
+To integrate a learned reranker (e.g., Cohere ReRank, OpenAI ReRank, Anthropic Claude), pass a scoring callback when creating `LLMemory`. The callback receives the query text and the candidate `SearchResult` objects, and should return an ordered list of scores:
+
+```python
+from llmemory.reranker import RerankerService
+
+async def cohere_rerank(query: str, results: list[SearchResult]) -> list[float]:
+    payload = {
+        "query": query,
+        "documents": [r.content for r in results],
+    }
+    response = await cohere_client.rerank(**payload)
+    return [doc["relevance_score"] for doc in response["results"]]
+
+memory = LLMemory(
+    connection_string="postgresql://localhost/mydb",
+    config=config,
+)
+memory._reranker = RerankerService(memory.config.search, score_callback=cohere_rerank)
+```
+
+Every search is logged to `search_history` with diagnostic metadata (`query_variants`, `backend`, latency breakdowns, rerank flags), so you can monitor adoption and tune thresholds in production.
+
 ### FastAPI
 
 ```python

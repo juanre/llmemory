@@ -9,21 +9,18 @@ A high-performance document memory system with vector search capabilities for Py
 ## Overview
 
 llmemory provides intelligent document processing with:
-- **Complete Document Management API** - List, retrieve, search, and manage documents without database access
-- **State-of-the-art vector search** using PostgreSQL with pgvector and HNSW indexing
+- **Complete Document Management API** – List, retrieve, search, and manage documents without direct database access
+- **State-of-the-art retrieval** using PostgreSQL with pgvector, hybrid BM25, multi-query expansion, and reranking
 - **Multi-language support** with automatic language detection and normalization
-- **Hybrid search** combining semantic and full-text search with Reciprocal Rank Fusion
-- **Hierarchical chunking** with document-type specific configurations
-- **Production-ready monitoring** with Prometheus metrics and health checks
+- **Hierarchical chunking & summaries** with document-type specific configurations and optional auto-summaries
+- **Production-ready monitoring** with Prometheus metrics and searchable diagnostics
 
-## What's New in v0.2.0
+## What's New
 
-- 📋 **Document Listing** - Browse and filter documents with pagination
-- 📄 **Full Document Retrieval** - Get documents with chunks and metadata
-- 🔍 **Enhanced Search** - Search results now include document metadata
-- 📊 **Statistics API** - Get usage statistics and document analytics
-- 🗑️ **Batch Operations** - Delete multiple documents by ID or metadata
-- 🎯 **Better Return Types** - Detailed results from all operations
+- 🔁 **Multi-query expansion** – Generate semantic + keyword variants automatically and fuse results with reciprocal rank fusion
+- 🎯 **Configurable reranking** – Plug in learned rerankers (or use built-in heuristics) for higher precision on the final hit list
+- 📝 **Chunk summaries** – Capture short, metadata-aware synopses during ingestion and surface them with every search hit
+- 📈 **Richer diagnostics** – Search history now records query variants, latency breakdowns, rerank status, and summary usage for easy tuning
 
 ## Why llmemory?
 
@@ -39,13 +36,13 @@ llmemory provides a production-ready solution for these challenges.
 
 ## Key Features
 
-- 🚀 **Fast Search**: HNSW indexes for sub-100ms vector searches
-- 🌍 **Multi-language**: Automatic detection and processing for 14+ languages
-- 📊 **Smart Chunking**: Document-type aware chunking (emails, code, reports, etc.)
-- 🔍 **Hybrid Search**: Combines vector and text search for best results
-- 📈 **Observable**: Built-in Prometheus metrics and performance tracking
-- 🏢 **Multi-tenant**: Owner-based isolation for SaaS applications
-- 🔌 **Flexible Embeddings**: Support for OpenAI and local embedding models
+- 🚀 **Fast Search** – HNSW indexes for sub-100 ms vector searches, plus multi-query expansion and reranking for tougher queries
+- 🌍 **Multi-language** – Automatic detection and processing for 14+ languages
+- 📊 **Smart Chunking** – Document-type aware chunking with optional inline summaries and context windows
+- 🔍 **Hybrid Search** – Combines vector and text search with reciprocal rank fusion, summary-aware prompting, and rerank scores
+- 📈 **Observable** – Built-in Prometheus metrics and detailed search diagnostics
+- 🏢 **Multi-tenant** – Owner-based isolation for SaaS applications
+- 🔌 **Flexible Embeddings** – Support for OpenAI and local embedding models
 
 ## Quick Start
 

@@ -39,17 +39,20 @@ async def main():
     )
     print(f"Created document with {result.chunks_created} chunks")
 
-    # Search
+    # Search with advanced retrieval
     results = await memory.search(
         owner_id="workspace-1",
         query_text="your search query",
         search_type=SearchType.HYBRID,
-        limit=10
+        limit=5,
+        query_expansion=True,   # Generate multiple query variants (optional)
+        rerank=True             # Apply the configured reranker (optional)
     )
     print(f"Found {len(results)} results")
 
     for result in results:
-        print(f"Score {result.score:.3f}: {result.content[:100]}...")
+        summary = result.summary or "(no summary)"
+        print(f"[score={result.score:.3f}] {summary} -> {result.content[:80]}...")
 
     # Clean up
     await memory.close()
@@ -108,6 +111,10 @@ Environment variables:
 ```bash
 DATABASE_URL=postgresql://localhost/mydb
 OPENAI_API_KEY=sk-...
+# Retrieval tuning (optional)
+LLMEMORY_ENABLE_QUERY_EXPANSION=1
+LLMEMORY_ENABLE_RERANK=1
+LLMEMORY_ENABLE_CHUNK_SUMMARIES=1
 ```
 
 Or programmatic:
@@ -116,7 +123,11 @@ Or programmatic:
 from llmemory import LLMemoryConfig
 
 config = LLMemoryConfig()
-config.chunking.chunk_size = 1500
+config.chunking.enable_chunk_summaries = True
+config.search.enable_query_expansion = True
+config.search.enable_rerank = True
 
 memory = LLMemory(connection_string="...", config=config)
 ```
+
+With these toggles enabled, each ingestion will capture short summaries for downstream prompts, `LLMemory.search()` will synthesize multiple query variants before retrieval, and the reranker will refine the final hit list.
