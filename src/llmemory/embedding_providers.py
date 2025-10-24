@@ -1,7 +1,7 @@
 # ABOUTME: Embedding provider implementations supporting OpenAI API and local Sentence Transformers models with rate limiting.
 # ABOUTME: Handles API key management, request throttling, caching, and provider-specific configuration for embedding generation.
 
-"""Embedding providers for aword-memory.
+"""Embedding providers for llmemory.
 
 This module provides different embedding providers (OpenAI, local models, etc.)
 with a common interface for generating embeddings.
@@ -84,11 +84,15 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
             # Try to get from environment
             import os
 
-            config.api_key = os.getenv("OPENAI_API_KEY")
+            config.api_key = (
+                os.getenv("LLMEMORY_OPENAI_API_KEY")
+                or os.getenv("AWORD_OPENAI_API_KEY")
+                or os.getenv("OPENAI_API_KEY")
+            )
             if not config.api_key:
                 raise ConfigurationError(
                     f"OpenAI provider '{provider_id}' requires an API key. "
-                    "Set AWORD_OPENAI_API_KEY or OPENAI_API_KEY environment variable."
+                    "Set LLMEMORY_OPENAI_API_KEY or OPENAI_API_KEY environment variable."
                 )
 
         self._client = None

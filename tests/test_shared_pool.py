@@ -1,4 +1,4 @@
-"""Test shared pool functionality for aword-memory."""
+"""Test shared pool functionality for llmemory."""
 
 import pytest
 from llmemory import LLMemory
@@ -73,27 +73,27 @@ async def test_memory_manager_from_db_manager(test_db_factory):
 
 
 @pytest.mark.asyncio
-async def test_aword_memory_from_db_manager(test_db_factory):
+async def test_llmemory_from_db_manager(test_db_factory):
     """Test creating LLMemory from external db manager."""
     # Create a test db manager with the schema we want
-    db_manager = await test_db_factory.create_db(suffix="aword_shared", schema="test_schema")
+    db_manager = await test_db_factory.create_db(suffix="llmemory_shared", schema="test_schema")
 
     # Create LLMemory using the shared pool pattern
-    aword_memory = LLMemory.from_db_manager(db_manager, openai_api_key="test-key")
+    llmemory = LLMemory.from_db_manager(db_manager, openai_api_key="test-key")
 
     # Verify it's configured correctly
-    assert aword_memory._external_db is True
-    assert aword_memory._db_manager is db_manager
+    assert llmemory._external_db is True
+    assert llmemory._db_manager is db_manager
 
     # Initialize
-    await aword_memory.initialize()
+    await llmemory.initialize()
 
     # Verify the manager was created correctly
-    assert aword_memory._manager is not None
-    assert aword_memory._manager._external_db is True
+    assert llmemory._manager is not None
+    assert llmemory._manager._external_db is True
 
     # Test basic functionality
-    result = await aword_memory.add_document(
+    result = await llmemory.add_document(
         owner_id="test-owner",
         id_at_origin="test-origin",
         document_name="Test Document",
@@ -104,7 +104,7 @@ async def test_aword_memory_from_db_manager(test_db_factory):
     assert result.document.document_id is not None
 
     # Close and verify external db still works
-    await aword_memory.close()
+    await llmemory.close()
     result = await db_manager.fetch_one("SELECT 1 as test")
     assert result["test"] == 1
 
@@ -116,17 +116,17 @@ async def test_shared_pool_integration(test_db_factory):
     # shared_pool = await asyncpg.create_pool(connection_string, min_size=50, max_size=200)
 
     # For testing, we'll simulate the pattern by creating managers with specific schemas
-    aword_db = await test_db_factory.create_db(suffix="aword", schema="aword_test")
+    llmemory_db = await test_db_factory.create_db(suffix="llmemory", schema="llmemory_test")
     other_db = await test_db_factory.create_db(suffix="other", schema="other_service")
 
     # Create LLMemory with shared pool
-    aword_memory = LLMemory.from_db_manager(aword_db)
+    llmemory = LLMemory.from_db_manager(llmemory_db)
 
     # Initialize
-    await aword_memory.initialize()
+    await llmemory.initialize()
 
     # Test functionality
-    doc = await aword_memory.add_document(
+    doc = await llmemory.add_document(
         owner_id="shared-test",
         id_at_origin="origin-1",
         document_name="Shared Pool Test",
@@ -136,17 +136,17 @@ async def test_shared_pool_integration(test_db_factory):
 
     assert doc.document.document_id is not None
 
-    # Verify isolation - other service shouldn't see aword's data
+    # Verify isolation - other service shouldn't see llmemory's data
     # This would fail if schemas weren't properly isolated
     tables = await other_db.fetch_all(
         "SELECT tablename FROM pg_tables WHERE schemaname = 'other_service'"
     )
     # Should be empty or only have other service's tables
-    aword_tables = [t for t in tables if "document" in t["tablename"]]
-    assert len(aword_tables) == 0
+    llmemory_tables = [t for t in tables if "document" in t["tablename"]]
+    assert len(llmemory_tables) == 0
 
     # Cleanup
-    await aword_memory.close()
+    await llmemory.close()
 
 
 @pytest.mark.asyncio

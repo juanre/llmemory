@@ -1,7 +1,7 @@
 # ABOUTME: High-level async manager coordinating document operations, embedding generation, and search across llmemory.
 # ABOUTME: Orchestrates document lifecycle from ingestion through chunking, enrichment, embedding, and retrieval with validation.
 
-"""High-level async manager for aword-memory operations."""
+"""High-level async manager for llmemory operations."""
 
 import hashlib
 import json
@@ -347,7 +347,7 @@ class MemoryManager:
 
         # Use INSERT ON CONFLICT to handle deduplication atomically
         # First try to insert, if conflict get existing chunk_id
-        query = self.db.db_manager._prepare_query(
+        query = self.db.db_manager.prepare_query(
             """
             WITH inserted AS (
                 INSERT INTO {{tables.document_chunks}} (
@@ -366,7 +366,7 @@ class MemoryManager:
             """
         )
 
-        result = await conn.fetchrow(
+        result = await conn.fetch_one(
             query,
             str(chunk.chunk_id),
             str(chunk.document_id),
@@ -425,17 +425,17 @@ class MemoryManager:
     ) -> Optional[DocumentChunk]:
         """Store a single chunk with all its details."""
         # Check if chunk already exists for this document
-        query = self.db.db_manager._prepare_query(
+        query = self.db.db_manager.prepare_query(
             "SELECT chunk_id FROM {{tables.document_chunks}} WHERE document_id = $1 AND content_hash = $2"
         )
-        existing = await conn.fetchrow(query, str(chunk.document_id), chunk.content_hash)
+        existing = await conn.fetch_one(query, str(chunk.document_id), chunk.content_hash)
 
         if existing:
             logger.debug(f"Chunk already exists with hash {chunk.content_hash}")
             chunk.chunk_id = UUID(str(existing["chunk_id"]))
         else:
             # Insert new chunk with all details preserved
-            query = self.db.db_manager._prepare_query(
+            query = self.db.db_manager.prepare_query(
                 """
             INSERT INTO {{tables.document_chunks}} (
                 chunk_id, document_id, parent_chunk_id, chunk_index,
@@ -445,7 +445,7 @@ class MemoryManager:
             """
             )
 
-            result = await conn.fetchrow(
+            result = await conn.fetch_one(
                 query,
                 str(chunk.chunk_id),
                 str(chunk.document_id),
@@ -474,7 +474,7 @@ class MemoryManager:
         """Queue a chunk for embedding generation."""
         # Get default provider if not specified
         if provider_id is None:
-            provider_query = self.db.db_manager._prepare_query(
+            provider_query = self.db.db_manager.prepare_query(
                 """
             SELECT provider_id
             FROM {{tables.embedding_providers}}
@@ -483,7 +483,7 @@ class MemoryManager:
             """
             )
             if conn:
-                result = await conn.fetchrow(provider_query)
+                result = await conn.fetch_one(provider_query)
             else:
                 result = await self.db.db_manager.fetch_one(provider_query)
             if result:
@@ -494,7 +494,7 @@ class MemoryManager:
                     "Please configure a default provider in the embedding_providers table."
                 )
 
-        query = self.db.db_manager._prepare_query(
+        query = self.db.db_manager.prepare_query(
             """
         INSERT INTO {{tables.embedding_queue}} (chunk_id, provider_id)
         VALUES ($1, $2)
@@ -557,7 +557,7 @@ class MemoryManager:
             # Update embedding queue status
             # If provider_id is None, get the default provider
             if resolved_provider_id is None:
-                provider_query = self.db.db_manager._prepare_query(
+                provider_query = self.db.db_manager.prepare_query(
                     """
                 SELECT provider_id
                 FROM {{tables.embedding_providers}}
@@ -565,7 +565,7 @@ class MemoryManager:
                 LIMIT 1
                 """
                 )
-                result = await conn.fetchrow(provider_query)
+                result = await conn.fetch_one(provider_query)
                 if result:
                     resolved_provider_id = result["provider_id"]
                 else:
@@ -574,7 +574,7 @@ class MemoryManager:
                         "Please configure a default provider in the embedding_providers table."
                     )
 
-            queue_query = self.db.db_manager._prepare_query(
+            queue_query = self.db.db_manager.prepare_query(
                 """
             UPDATE {{tables.embedding_queue}}
             SET status = $1, processed_at = NOW()
@@ -720,7 +720,7 @@ class MemoryManager:
     ) -> List[DocumentChunk]:
         """Get parent context for a chunk."""
         # Use template-based schema qualification for the function
-        query = self.db.db_manager._prepare_query(
+        query = self.db.db_manager.prepare_query(
             """
             SELECT * FROM {{schema}}.get_chunk_with_context($1, $2)
             """
@@ -787,7 +787,7 @@ class MemoryManager:
 
     async def get_pending_embeddings(self, limit: int = 100) -> List[EmbeddingJob]:
         """Get pending embedding jobs."""
-        query = self.db.db_manager._prepare_query(
+        query = self.db.db_manager.prepare_query(
             """
         SELECT
             eq.chunk_id, eq.provider_id, eq.status, eq.retry_count,
@@ -869,7 +869,7 @@ class MemoryManager:
         Returns:
             List of DocumentChunk instances
         """
-        query = self.db.db_manager._prepare_query(
+        query = self.db.db_manager.prepare_query(
             """
         SELECT
             chunk_id, document_id, parent_chunk_id, chunk_index,

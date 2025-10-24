@@ -1,7 +1,7 @@
 # ABOUTME: Data models defining core types for documents, chunks, search queries, and results with validation and serialization.
 # ABOUTME: Provides type-safe dataclasses for all llmemory operations including metadata, embeddings, and search configuration.
 
-"""Data models for aword-memory."""
+"""Data models for llmemory."""
 
 from dataclasses import dataclass, field
 from datetime import datetime

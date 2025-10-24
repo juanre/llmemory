@@ -1,4 +1,4 @@
-"""Tests for aword-memory database integration using high-level APIs."""
+"""Tests for llmemory database integration using high-level APIs."""
 
 from datetime import datetime
 from uuid import uuid4

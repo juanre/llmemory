@@ -1,4 +1,4 @@
-"""Tests for new aword-memory API methods."""
+"""Tests for new llmemory API methods."""
 
 import asyncio
 from datetime import datetime, timedelta

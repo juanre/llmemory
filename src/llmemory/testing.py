@@ -36,8 +36,8 @@ async def memory_db(test_db_factory) -> AsyncGenerator[MemoryDatabase, None]:
     Yields:
         MemoryDatabase: An initialized MemoryDatabase instance
     """
-    # Create test database with aword_memory schema
-    db_manager = await test_db_factory.create_db(suffix="memory", schema="aword_memory")
+    # Create test database with llmemory schema
+    db_manager = await test_db_factory.create_db(suffix="memory", schema="llmemory")
 
     # Create memory database wrapper
     memory_db = MemoryDatabase(db_manager)
@@ -151,7 +151,7 @@ async def memory_library(test_db_factory) -> AsyncGenerator[LLMemory, None]:
         pytest.skip("OPENAI_API_KEY not found in environment - skipping API-dependent tests")
 
     # Create test database
-    db_manager = await test_db_factory.create_db(suffix="memory_lib", schema="aword_memory")
+    db_manager = await test_db_factory.create_db(suffix="memory_lib", schema="llmemory")
 
     # Create LLMemory instance
     memory = LLMemory(

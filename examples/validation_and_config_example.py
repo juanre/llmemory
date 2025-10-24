@@ -1,4 +1,4 @@
-"""Configuration and validation example for aword-memory.
+"""Configuration and validation example for llmemory.
 
 This example demonstrates:
 - Configuration management with multiple providers
@@ -68,7 +68,7 @@ async def configuration_examples():
 
     # Customize database settings
     custom_config.database.max_pool_size = 30
-    custom_config.database.schema_name = "aword_memory"
+    custom_config.database.schema_name = "llmemory"
 
     # Customize validation
     custom_config.validation.max_content_length = 10_000_000  # 10MB
@@ -83,12 +83,12 @@ async def configuration_examples():
     # 3. Environment variable configuration
     print("\n3. Environment Variable Configuration:")
     print("   Set these environment variables for deployment:")
-    print("   - AWORD_EMBEDDING_PROVIDER=openai")
-    print("   - AWORD_OPENAI_API_KEY=sk-...")
-    print("   - AWORD_OPENAI_MODEL=text-embedding-3-small")
-    print("   - AWORD_LOCAL_MODEL=all-MiniLM-L6-v2")
-    print("   - AWORD_LOCAL_DEVICE=cuda")
-    print("   - AWORD_DB_MAX_POOL_SIZE=50")
+    print("   - LLMEMORY_EMBEDDING_PROVIDER=openai")
+    print("   - LLMEMORY_OPENAI_API_KEY=sk-...")
+    print("   - LLMEMORY_OPENAI_MODEL=text-embedding-3-small")
+    print("   - LLMEMORY_LOCAL_MODEL=all-MiniLM-L6-v2")
+    print("   - LLMEMORY_LOCAL_DEVICE=cuda")
+    print("   - LLMEMORY_DB_MAX_POOL_SIZE=50")
 
     # Load from environment
     env_config = LLMemoryConfig.from_env()
@@ -102,7 +102,7 @@ async def validation_examples():
 
     # Initialize memory
     memory = LLMemory(
-        connection_string="postgresql://postgres:postgres@localhost/aword_memory_validation",
+        connection_string="postgresql://postgres:postgres@localhost/llmemory_validation",
         openai_api_key=os.getenv("OPENAI_API_KEY"),
     )
 
@@ -196,7 +196,7 @@ async def error_handling_examples():
     # 1. Missing API key for vector search
     print("1. Testing missing API key:")
     memory_no_key = LLMemory(
-        connection_string="postgresql://postgres:postgres@localhost/aword_memory_errors"
+        connection_string="postgresql://postgres:postgres@localhost/llmemory_errors"
     )
 
     await memory_no_key.initialize_async()
@@ -217,7 +217,7 @@ async def error_handling_examples():
         bad_config.embedding.default_provider = "nonexistent"
 
         memory_bad = LLMemory(
-            connection_string="postgresql://postgres:postgres@localhost/aword_memory_errors",
+            connection_string="postgresql://postgres:postgres@localhost/llmemory_errors",
             config=bad_config,
         )
         await memory_bad.initialize_async()
@@ -261,7 +261,7 @@ async def production_best_practices():
     # 2. Error recovery
     print("\n2. Error Recovery Pattern:")
     memory = LLMemory(
-        connection_string=os.getenv("DATABASE_URL", "postgresql://localhost/aword_memory"),
+        connection_string=os.getenv("DATABASE_URL", "postgresql://localhost/llmemory"),
         config=prod_config,
     )
 

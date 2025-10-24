@@ -1,7 +1,7 @@
 # ABOUTME: Custom exception hierarchy for llmemory providing specific error types with contextual information.
 # ABOUTME: Includes exceptions for validation, database operations, embeddings, chunking, and configuration with detailed error context.
 
-"""Custom exceptions for aword-memory library."""
+"""Custom exceptions for llmemory library."""
 
 from typing import Any, Dict, Optional
 

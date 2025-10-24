@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Run the aword-memory API server."""
+"""Run the llmemory API server."""
 
 import logging
 import os
@@ -16,7 +16,7 @@ logging.basicConfig(
 
 # Set environment variables if not set
 if not os.getenv("DATABASE_URL"):
-    os.environ["DATABASE_URL"] = "postgresql://postgres:postgres@localhost/aword_memory"
+    os.environ["DATABASE_URL"] = "postgresql://postgres:postgres@localhost/llmemory"
 
 if not os.getenv("REDIS_URL"):
     os.environ["REDIS_URL"] = "redis://localhost:6379"
@@ -30,5 +30,5 @@ if __name__ == "__main__":
 
     # Run with auto-reload in development
     uvicorn.run(
-        "aword_memory.api:app", host="0.0.0.0", port=8000, reload=True, log_level="info"
+        "llmemory.api:app", host="0.0.0.0", port=8000, reload=True, log_level="info"
     )

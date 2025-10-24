@@ -1,4 +1,4 @@
-"""Test configuration for aword-memory."""
+"""Test configuration for llmemory."""
 
 # Import all pgdbm-utils test fixtures
 from pgdbm.fixtures.conftest import *

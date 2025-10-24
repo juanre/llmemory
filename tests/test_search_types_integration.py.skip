@@ -12,8 +12,8 @@ from typing import List, Dict, Any, Tuple
 from datetime import datetime
 from uuid import uuid4
 
-from aword_memory import AwordMemory, DocumentType, SearchType
-from aword_memory.models import SearchResult
+from llmemory import LLMemory, DocumentType, SearchType
+from llmemory.models import SearchResult
 
 @pytest.mark.skip(reason="Requires async initialization for embeddings - skipping due to pytest/asyncpg issues")
 @pytest.mark.integration
@@ -21,7 +21,7 @@ class TestSearchTypesIntegration:
     """Test different search types (text, vector, hybrid) with real documents."""
 
     @pytest.fixture
-    def memory_with_embeddings(self, memory_library) -> AwordMemory:
+    def memory_with_embeddings(self, memory_library) -> LLMemory:
         """Create memory instance with embedded documents."""
         # Skip if no OpenAI key
         openai_key = os.getenv("OPENAI_API_KEY")
@@ -92,7 +92,7 @@ class TestSearchTypesIntegration:
         ]
 
         for query, expected_topic in test_queries:
-            from aword_memory.models import SearchQuery
+            from llmemory.models import SearchQuery
             search_query = SearchQuery(
                 owner_id="test_workspace",
                 query_text=query,

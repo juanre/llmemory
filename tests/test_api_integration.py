@@ -1,4 +1,4 @@
-"""Integration tests for new aword-memory API methods."""
+"""Integration tests for new llmemory API methods."""
 
 import asyncio
 

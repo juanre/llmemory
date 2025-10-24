@@ -1,7 +1,7 @@
 # ABOUTME: Monitoring and metrics collection using Prometheus for tracking search performance, embedding operations, and system health.
 # ABOUTME: Provides comprehensive metrics including latencies, throughput, error rates, and resource utilization with health checks.
 
-"""Monitoring and metrics utilities for aword-memory.
+"""Monitoring and metrics utilities for llmemory.
 
 This module provides Prometheus metrics collection and health check endpoints
 for monitoring search performance and system health.
@@ -36,33 +36,33 @@ class SystemMetrics:
             return
 
         # System metrics
-        self.cpu_usage = Gauge("aword_memory_cpu_usage_percent", "CPU usage percentage")
+        self.cpu_usage = Gauge("llmemory_cpu_usage_percent", "CPU usage percentage")
 
         self.memory_usage = Gauge(
-            "aword_memory_memory_usage_bytes", "Memory usage in bytes"
+            "llmemory_memory_usage_bytes", "Memory usage in bytes"
         )
 
         self.memory_percent = Gauge(
-            "aword_memory_memory_usage_percent", "Memory usage percentage"
+            "llmemory_memory_usage_percent", "Memory usage percentage"
         )
 
         self.disk_usage = Gauge(
-            "aword_memory_disk_usage_percent", "Disk usage percentage", ["path"]
+            "llmemory_disk_usage_percent", "Disk usage percentage", ["path"]
         )
 
         # Database connection metrics
         self.db_connections_active = Gauge(
-            "aword_memory_db_connections_active",
+            "llmemory_db_connections_active",
             "Number of active database connections",
         )
 
         self.db_connections_idle = Gauge(
-            "aword_memory_db_connections_idle", "Number of idle database connections"
+            "llmemory_db_connections_idle", "Number of idle database connections"
         )
 
         # Application info
         self.app_info = Info(
-            "aword_memory_app", "Application version and environment info"
+            "llmemory_app", "Application version and environment info"
         )
 
         # Set initial app info
@@ -98,7 +98,7 @@ class SystemMetrics:
 
 
 class HealthCheck:
-    """Health check implementation for aword-memory."""
+    """Health check implementation for llmemory."""
 
     def __init__(self, db_manager=None):
         self.db_manager = db_manager
@@ -191,7 +191,7 @@ def get_metrics_handler():
         async def disabled_handler(request):
             return {
                 "error": "Metrics not available",
-                "message": "Install with: pip install aword-memory[monitoring]",
+                "message": "Install with: pip install llmemory[monitoring]",
             }
 
         return disabled_handler

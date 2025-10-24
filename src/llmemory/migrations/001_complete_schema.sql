@@ -1,4 +1,4 @@
--- Complete schema for aword-memory with pgvector support
+-- Complete schema for llmemory with pgvector support
 -- Designed for integration with agent-engine for document indexing and retrieval
 
 -- Enable pgvector extension (requires superuser privileges). If not permitted, skip.

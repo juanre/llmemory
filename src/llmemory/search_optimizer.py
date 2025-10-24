@@ -33,13 +33,13 @@ try:
 
     # Define metrics
     search_requests_total = Counter(
-        "aword_memory_search_requests_total",
+        "llmemory_search_requests_total",
         "Total number of search requests",
         ["search_type", "owner_id"],
     )
 
     search_duration_seconds = Histogram(
-        "aword_memory_search_duration_seconds",
+        "llmemory_search_duration_seconds",
         "Search request duration in seconds",
         ["search_type"],
         buckets=(
@@ -60,48 +60,48 @@ try:
     )
 
     search_results_count = Histogram(
-        "aword_memory_search_results_count",
+        "llmemory_search_results_count",
         "Number of results returned per search",
         ["search_type"],
         buckets=(0, 1, 5, 10, 20, 50, 100),
     )
 
-    cache_hit_rate = Gauge("aword_memory_cache_hit_rate", "Cache hit rate for searches")
+    cache_hit_rate = Gauge("llmemory_cache_hit_rate", "Cache hit rate for searches")
 
     active_searches = Gauge(
-        "aword_memory_active_searches", "Number of currently active searches"
+        "llmemory_active_searches", "Number of currently active searches"
     )
 
     vector_similarity_scores = Summary(
-        "aword_memory_vector_similarity_scores",
+        "llmemory_vector_similarity_scores",
         "Distribution of vector similarity scores",
     )
 
     text_rank_scores = Summary(
-        "aword_memory_text_rank_scores", "Distribution of text rank scores"
+        "llmemory_text_rank_scores", "Distribution of text rank scores"
     )
 
     query_embedding_time = Histogram(
-        "aword_memory_query_embedding_seconds",
+        "llmemory_query_embedding_seconds",
         "Time to generate query embeddings",
         buckets=(0.1, 0.25, 0.5, 1.0, 2.0, 5.0),
     )
 
     database_query_duration = Histogram(
-        "aword_memory_database_query_seconds",
+        "llmemory_database_query_seconds",
         "Database query execution time",
         ["query_type"],
         buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0),
     )
 
     METRICS_ENABLED = True
-    logger.info("Prometheus metrics enabled for aword-memory")
+    logger.info("Prometheus metrics enabled for llmemory")
 
 except ImportError:
     # Fallback when prometheus_client is not installed
     METRICS_ENABLED = False
     logger.info(
-        "Prometheus metrics disabled - install with: pip install aword-memory[monitoring]"
+        "Prometheus metrics disabled - install with: pip install llmemory[monitoring]"
     )
 
 

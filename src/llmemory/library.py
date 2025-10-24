@@ -1,9 +1,9 @@
 # ABOUTME: High-level async library interface providing the main public API for llmemory document operations.
 # ABOUTME: Implements document storage, search, deletion, and embedding management with comprehensive validation and error handling.
 
-"""Main library interface for aword-memory.
+"""Main library interface for llmemory.
 
-This module provides the public API for integrating aword-memory into any application.
+This module provides the public API for integrating llmemory into any application.
 It handles async operations with clean interfaces and supports
 multi-tenant configurations through owner_id filtering.
 """
@@ -596,7 +596,7 @@ class LLMemory:
             doc_ids = list(set(str(result.document_id) for result in search_results))
 
             # Fetch document metadata in batch - use the manager's prepared query
-            doc_query = self._manager.db.db._prepare_query(
+            doc_query = self._manager.db.db.prepare_query(
                 """
             SELECT document_id, document_name, document_type, metadata
             FROM {{tables.documents}}
@@ -774,7 +774,7 @@ class LLMemory:
             raise DocumentNotFoundError(document_id)
 
         # Build query - use prepared query for schema support
-        query = self._manager.db.db._prepare_query(
+        query = self._manager.db.db.prepare_query(
             """
         SELECT
             chunk_id, document_id, parent_chunk_id, chunk_index,

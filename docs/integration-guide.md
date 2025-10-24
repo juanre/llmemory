@@ -32,7 +32,7 @@ await memory.close()
 
 **Behavior:**
 - Creates own connection pool
-- Runs migrations in configured schema (default: `aword_memory`)
+- Runs migrations in configured schema (default: `llmemory`)
 - Tables: `{schema}.documents`, `{schema}.document_chunks`, etc.
 
 ### 2. Shared Pool Mode (Sublibrary)
@@ -68,7 +68,7 @@ llmemory uses pgdbm's migration system with automatic execution.
 **Migration Behavior:**
 - Runs automatically during `initialize()`
 - Uses `{{tables.tablename}}` template syntax for schema awareness
-- Tracked in `schema_migrations` table with module name `aword_memory`
+- Tracked in `schema_migrations` table with module name `llmemory`
 - Idempotent and safe to run multiple times
 
 **Manual Migration Control:**

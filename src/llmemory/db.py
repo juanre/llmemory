@@ -1,7 +1,7 @@
 # ABOUTME: Database integration layer providing high-level async operations for llmemory using pgdbm.
 # ABOUTME: Manages document storage, chunk embeddings, search operations, and migration management with schema isolation.
 
-"""Async database integration for aword-memory using pgdbm-utils."""
+"""Async database integration for llmemory using pgdbm-utils."""
 
 import hashlib
 import json
@@ -18,14 +18,14 @@ logger = logging.getLogger(__name__)
 
 async def create_memory_db_manager(
     connection_string: Optional[str] = None,
-    schema: str = "aword_memory",
+    schema: str = "llmemory",
     enable_pgvector: bool = True,
     enable_monitoring: bool = False,
     min_connections: int = 10,
     max_connections: int = 20,
 ) -> AsyncDatabaseManager:
     """
-    Create an async database manager for aword-memory.
+    Create an async database manager for llmemory.
 
     Args:
         connection_string: PostgreSQL connection string
@@ -89,7 +89,7 @@ async def _ensure_pgvector_extension(db: AsyncDatabaseManager) -> None:
 
 
 class MemoryDatabase:
-    """High-level async interface for aword-memory database operations."""
+    """High-level async interface for llmemory database operations."""
 
     def __init__(self, db: AsyncDatabaseManager, external_db: bool = False):
         self.db = db
@@ -104,7 +104,7 @@ class MemoryDatabase:
 
     @classmethod
     def from_manager(
-        cls, db_manager: AsyncDatabaseManager, schema: str = "aword_memory"
+        cls, db_manager: AsyncDatabaseManager, schema: str = "llmemory"
     ) -> "MemoryDatabase":
         """
         Create MemoryDatabase instance from existing AsyncDatabaseManager.
@@ -121,7 +121,7 @@ class MemoryDatabase:
         # Just use the provided db_manager directly
         # The schema should already be set correctly by the caller
         # This follows the pattern from the integration guide where
-        # the parent creates: AsyncDatabaseManager(pool=shared_pool, schema="aword_memory")
+        # the parent creates: AsyncDatabaseManager(pool=shared_pool, schema="llmemory")
         return cls(db_manager, external_db=True)
 
     async def initialize(self) -> None:
@@ -132,7 +132,7 @@ class MemoryDatabase:
         # Set up migration manager
         migrations_path = Path(__file__).parent / "migrations"
         self.migration_manager = AsyncMigrationManager(
-            self.db, migrations_path=str(migrations_path), module_name="aword_memory"
+            self.db, migrations_path=str(migrations_path), module_name="llmemory"
         )
 
         # Register prepared statements for performance
@@ -205,7 +205,7 @@ class MemoryDatabase:
         # Use transaction for atomicity
         async with self.db.transaction() as conn:
             # First insert the chunk without embedding
-            query = self.db._prepare_query(
+            query = self.db.prepare_query(
                 """
                 INSERT INTO {{tables.document_chunks}} (
                     document_id, chunk_id, content, metadata, parent_chunk_id,
@@ -214,7 +214,7 @@ class MemoryDatabase:
                 RETURNING chunk_id
                 """
             )
-            result = await conn.fetchrow(
+            result = await conn.fetch_one(
                 query,
                 document_id,
                 chunk_id,
@@ -251,9 +251,9 @@ class MemoryDatabase:
                 conn, chunk_id, embedding, provider_id
             )
         else:
-            async with self.db.acquire() as conn:
+            async with self.db.transaction() as tx:
                 return await self._insert_embedding_with_conn(
-                    conn, chunk_id, embedding, provider_id
+                    tx, chunk_id, embedding, provider_id
                 )
 
     async def _insert_embedding_with_conn(
@@ -267,7 +267,7 @@ class MemoryDatabase:
         # Get provider info
         if provider_id is None:
             # Use default provider
-            query = self.db._prepare_query(
+            query = self.db.prepare_query(
                 """
                 SELECT provider_id, table_name, dimension
                 FROM {{tables.embedding_providers}}
@@ -275,17 +275,15 @@ class MemoryDatabase:
                 LIMIT 1
                 """
             )
-            result = await conn.fetchrow(query)
-            provider_info = dict(result) if result else None
+            provider_info = await conn.fetch_one(query)
         else:
-            query = self.db._prepare_query(
+            query = self.db.prepare_query(
                 """
                 SELECT provider_id, table_name, dimension FROM {{tables.embedding_providers}}
                 WHERE provider_id = $1
                 """
             )
-            result = await conn.fetchrow(query, provider_id)
-            provider_info = dict(result) if result else None
+            provider_info = await conn.fetch_one(query, provider_id)
 
         if not provider_info:
             raise ValueError(f"Provider {provider_id or 'default'} not found")

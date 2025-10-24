@@ -214,7 +214,7 @@ class TestLLMemoryWithProviders:
     async def test_provider_registration(self, memory_with_openai):
         """Test that providers are registered in the database."""
         # Check provider is registered
-        query = memory_with_openai._manager.db.db_manager._prepare_query(
+        query = memory_with_openai._manager.db.db_manager.prepare_query(
             """
         SELECT * FROM {{tables.embedding_providers}} WHERE provider_id = 'openai-text-embedding-3-small'
         """

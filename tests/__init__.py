@@ -1,1 +1,1 @@
-"""Tests for aword-memory."""
+"""Tests for llmemory."""

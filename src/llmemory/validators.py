@@ -1,7 +1,7 @@
 # ABOUTME: Input validation utilities providing comprehensive validation for documents, chunks, metadata, and search parameters.
 # ABOUTME: Implements security-focused validation including depth limits, key sanitization, and size constraints.
 
-"""Input validation utilities for aword-memory library."""
+"""Input validation utilities for llmemory library."""
 
 import re
 from datetime import datetime
@@ -13,7 +13,7 @@ from .models import ChunkingStrategy, DocumentType, SearchType
 
 
 class InputValidator:
-    """Validates input parameters for aword-memory operations."""
+    """Validates input parameters for llmemory operations."""
 
     def __init__(self):
         self.config = get_config().validation

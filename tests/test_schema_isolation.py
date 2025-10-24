@@ -1,4 +1,4 @@
-"""Test that aword-memory correctly uses configured schema for all operations."""
+"""Test that llmemory correctly uses configured schema for all operations."""
 
 from datetime import datetime
 from uuid import uuid4
@@ -14,9 +14,9 @@ from llmemory.models import DocumentType, SearchQuery, SearchType
 
 @pytest.mark.asyncio
 async def test_schema_isolation(test_db_factory):
-    """Test that aword-memory uses the configured schema for all database operations."""
+    """Test that llmemory uses the configured schema for all database operations."""
     # Create database with custom schema using test factory
-    db_manager = await test_db_factory.create_db(suffix="schema_test", schema="test_aword_memory")
+    db_manager = await test_db_factory.create_db(suffix="schema_test", schema="test_llmemory")
 
     # Create MemoryDatabase wrapper
     memory_db = MemoryDatabase(db_manager)
@@ -27,17 +27,17 @@ async def test_schema_isolation(test_db_factory):
 
     # Verify tables were created in the correct schema
     async with db_manager.acquire() as conn:
-        # Check that tables exist in test_aword_memory schema
+        # Check that tables exist in test_llmemory schema
         tables_query = """
         SELECT table_name
         FROM information_schema.tables
         WHERE table_schema = $1
         ORDER BY table_name
         """
-        tables = await conn.fetch(tables_query, "test_aword_memory")
+        tables = await conn.fetch(tables_query, "test_llmemory")
         table_names = [row["table_name"] for row in tables]
 
-        # Should have all the aword-memory tables
+        # Should have all the llmemory tables
         expected_tables = [
             "document_chunks",
             "documents",
@@ -47,7 +47,7 @@ async def test_schema_isolation(test_db_factory):
             "search_history",
         ]
         for table in expected_tables:
-            assert table in table_names, f"Table {table} not found in test_aword_memory schema"
+            assert table in table_names, f"Table {table} not found in test_llmemory schema"
 
         # Check that NO tables exist in public schema (except system tables)
         public_tables = await conn.fetch(tables_query, "public")
@@ -57,7 +57,7 @@ async def test_schema_isolation(test_db_factory):
         for table in expected_tables:
             assert (
                 table not in public_table_names
-            ), f"Table {table} found in public schema but should be in test_aword_memory"
+            ), f"Table {table} found in public schema but should be in test_llmemory"
 
     # Test document operations
     owner_id = "test_owner"

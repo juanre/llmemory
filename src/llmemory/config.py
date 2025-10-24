@@ -1,7 +1,7 @@
 # ABOUTME: Configuration management providing centralized settings for chunking, embeddings, search, and validation parameters.
 # ABOUTME: Supports environment variable overrides and provides type-safe configuration with sensible defaults for all components.
 
-"""Configuration management for aword-memory library."""
+"""Configuration management for llmemory library."""
 
 import os
 from dataclasses import dataclass, field
@@ -129,7 +129,7 @@ class DatabaseConfig:
     command_timeout: float = 30.0
 
     # Schema
-    schema_name: str = "public"
+    schema_name: str = "llmemory"
     documents_table: str = "documents"
     chunks_table: str = "document_chunks"
     embeddings_queue_table: str = "embedding_queue"
@@ -164,7 +164,7 @@ class ValidationConfig:
 
 @dataclass
 class LLMemoryConfig:
-    """Main configuration for aword-memory library."""
+    """Main configuration for llmemory library."""
 
     embedding: EmbeddingConfig = field(default_factory=EmbeddingConfig)
     chunking: ChunkingConfig = field(default_factory=ChunkingConfig)
@@ -188,16 +188,24 @@ class LLMemoryConfig:
         config = cls()
 
         # Override with environment variables if present
+        def env_var(*names: str) -> Optional[str]:
+            """Return the first environment variable value found."""
+            for name in names:
+                value = os.getenv(name)
+                if value is not None:
+                    return value
+            return None
 
         # Default provider
-        if provider := os.getenv("AWORD_EMBEDDING_PROVIDER"):
+        if provider := env_var("LLMEMORY_EMBEDDING_PROVIDER", "AWORD_EMBEDDING_PROVIDER"):
             config.embedding.default_provider = provider
 
         # OpenAI configuration
-        if api_key := os.getenv("AWORD_OPENAI_API_KEY"):
+        api_key = env_var("LLMEMORY_OPENAI_API_KEY", "AWORD_OPENAI_API_KEY", "OPENAI_API_KEY")
+        if api_key:
             config.embedding.providers["openai"].api_key = api_key
 
-        if model := os.getenv("AWORD_OPENAI_MODEL"):
+        if model := env_var("LLMEMORY_OPENAI_MODEL", "AWORD_OPENAI_MODEL"):
             config.embedding.providers["openai"].model_name = model
             # Update dimension based on model
             if "text-embedding-3-small" in model:
@@ -206,17 +214,17 @@ class LLMemoryConfig:
                 config.embedding.providers["openai"].dimension = 3072
 
         # Local model configuration
-        if model := os.getenv("AWORD_LOCAL_MODEL"):
+        if model := env_var("LLMEMORY_LOCAL_MODEL", "AWORD_LOCAL_MODEL"):
             config.embedding.providers["local-minilm"].model_name = model
 
-        if device := os.getenv("AWORD_LOCAL_DEVICE"):
+        if device := env_var("LLMEMORY_LOCAL_DEVICE", "AWORD_LOCAL_DEVICE"):
             config.embedding.providers["local-minilm"].device = device
 
-        if cache_dir := os.getenv("AWORD_LOCAL_CACHE_DIR"):
+        if cache_dir := env_var("LLMEMORY_LOCAL_CACHE_DIR", "AWORD_LOCAL_CACHE_DIR"):
             config.embedding.providers["local-minilm"].cache_dir = cache_dir
 
         # Multiple providers support
-        if providers_str := os.getenv("AWORD_EMBEDDING_PROVIDERS"):
+        if providers_str := env_var("LLMEMORY_EMBEDDING_PROVIDERS", "AWORD_EMBEDDING_PROVIDERS"):
             # Parse comma-separated list of provider configurations
             # Format: provider1:type:model,provider2:type:model
             for provider_spec in providers_str.split(","):
@@ -232,25 +240,25 @@ class LLMemoryConfig:
                     )
 
                     # Copy API key for OpenAI providers
-                    if ptype == "openai" and api_key:
-                        provider_config.api_key = api_key
+                    if ptype == "openai" and config.embedding.providers["openai"].api_key:
+                        provider_config.api_key = config.embedding.providers["openai"].api_key
 
                     config.embedding.providers[name] = provider_config
 
-        if cache_ttl := os.getenv("AWORD_SEARCH_CACHE_TTL"):
+        if cache_ttl := env_var("LLMEMORY_SEARCH_CACHE_TTL", "AWORD_SEARCH_CACHE_TTL"):
             config.search.cache_ttl = int(cache_ttl)
 
-        if pool_size := os.getenv("AWORD_DB_MAX_POOL_SIZE"):
+        if pool_size := env_var("LLMEMORY_DB_MAX_POOL_SIZE", "AWORD_DB_MAX_POOL_SIZE"):
             config.database.max_pool_size = int(pool_size)
 
-        if log_level := os.getenv("AWORD_LOG_LEVEL"):
+        if log_level := env_var("LLMEMORY_LOG_LEVEL", "AWORD_LOG_LEVEL"):
             config.log_level = log_level
 
         # Feature flags
-        if os.getenv("AWORD_DISABLE_CACHING"):
+        if env_var("LLMEMORY_DISABLE_CACHING", "AWORD_DISABLE_CACHING"):
             config.enable_caching = False
 
-        if os.getenv("AWORD_DISABLE_METRICS"):
+        if env_var("LLMEMORY_DISABLE_METRICS", "AWORD_DISABLE_METRICS"):
             config.enable_metrics = False
 
         return config

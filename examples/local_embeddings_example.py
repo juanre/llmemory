@@ -1,4 +1,4 @@
-"""Local embeddings example for aword-memory.
+"""Local embeddings example for llmemory.
 
 This example demonstrates how to use local embedding models (sentence-transformers)
 instead of OpenAI, providing privacy and cost benefits.
@@ -36,7 +36,7 @@ async def basic_local_embeddings():
 
     # Initialize with local embeddings
     memory = LLMemory(
-        connection_string="postgresql://postgres:postgres@localhost/aword_memory_local",
+        connection_string="postgresql://postgres:postgres@localhost/llmemory_local",
         config=config,
     )
 
@@ -148,7 +148,7 @@ async def multi_language_example():
     )
 
     memory = LLMemory(
-        connection_string="postgresql://postgres:postgres@localhost/aword_memory_multilingual",
+        connection_string="postgresql://postgres:postgres@localhost/llmemory_multilingual",
         config=config,
     )
 
@@ -303,7 +303,7 @@ async def performance_comparison():
 
 async def main():
     """Run all examples."""
-    print("🚀 Local Embeddings Examples for aword-memory\n")
+    print("🚀 Local Embeddings Examples for llmemory\n")
 
     # Run examples
     await basic_local_embeddings()

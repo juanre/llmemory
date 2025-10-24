@@ -1,1 +1,1 @@
-"""Database migrations for aword-memory."""
+"""Database migrations for llmemory."""

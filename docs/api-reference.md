@@ -247,23 +247,23 @@ Configure the service through environment variables:
 
 ```bash
 # Embedding Provider Settings
-AWORD_EMBEDDING_PROVIDER=openai  # or "local-minilm"
-AWORD_OPENAI_API_KEY=sk-...
-AWORD_OPENAI_MODEL=text-embedding-3-small
+LLMEMORY_EMBEDDING_PROVIDER=openai  # or "local-minilm"
+LLMEMORY_OPENAI_API_KEY=sk-...
+LLMEMORY_OPENAI_MODEL=text-embedding-3-small
 
 # Local Model Settings (if using local embeddings)
-AWORD_LOCAL_MODEL=all-MiniLM-L6-v2
-AWORD_LOCAL_DEVICE=cuda  # or "cpu"
-AWORD_LOCAL_CACHE_DIR=/path/to/models
+LLMEMORY_LOCAL_MODEL=all-MiniLM-L6-v2
+LLMEMORY_LOCAL_DEVICE=cuda  # or "cpu"
+LLMEMORY_LOCAL_CACHE_DIR=/path/to/models
 
 # Database Settings
-AWORD_DB_MAX_POOL_SIZE=20
+LLMEMORY_DB_MAX_POOL_SIZE=20
 
 # Search Settings
-AWORD_SEARCH_CACHE_TTL=3600
+LLMEMORY_SEARCH_CACHE_TTL=3600
 
 # Logging
-AWORD_LOG_LEVEL=INFO
+LLMEMORY_LOG_LEVEL=INFO
 ```
 
 ### Programmatic Configuration

@@ -58,7 +58,7 @@ psql memory_test -c "CREATE EXTENSION vector"
 5. Set environment variables:
 ```bash
 export DATABASE_URL="postgresql://localhost/memory_test"
-export AWORD_OPENAI_API_KEY="sk-..." # Or use local embeddings
+export LLMEMORY_OPENAI_API_KEY="sk-..." # Or use local embeddings
 ```
 
 ### Running Tests

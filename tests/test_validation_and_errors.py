@@ -1,4 +1,4 @@
-"""Tests for input validation and error handling in aword-memory."""
+"""Tests for input validation and error handling in llmemory."""
 
 from unittest.mock import AsyncMock, patch
 
@@ -267,12 +267,12 @@ class TestConfigurationValidation:
     def test_configuration_from_env(self, monkeypatch):
         """Test configuration from environment variables."""
         # Set environment variables
-        monkeypatch.setenv("AWORD_EMBEDDING_PROVIDER", "local-minilm")
-        monkeypatch.setenv("AWORD_OPENAI_API_KEY", "test-api-key")
-        monkeypatch.setenv("AWORD_SEARCH_CACHE_TTL", "7200")
-        monkeypatch.setenv("AWORD_DB_MAX_POOL_SIZE", "50")
-        monkeypatch.setenv("AWORD_LOG_LEVEL", "DEBUG")
-        monkeypatch.setenv("AWORD_DISABLE_CACHING", "1")
+        monkeypatch.setenv("LLMEMORY_EMBEDDING_PROVIDER", "local-minilm")
+        monkeypatch.setenv("LLMEMORY_OPENAI_API_KEY", "test-api-key")
+        monkeypatch.setenv("LLMEMORY_SEARCH_CACHE_TTL", "7200")
+        monkeypatch.setenv("LLMEMORY_DB_MAX_POOL_SIZE", "50")
+        monkeypatch.setenv("LLMEMORY_LOG_LEVEL", "DEBUG")
+        monkeypatch.setenv("LLMEMORY_DISABLE_CACHING", "1")
 
         config = LLMemoryConfig.from_env()
 
