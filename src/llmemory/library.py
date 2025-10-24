@@ -8,11 +8,13 @@ It handles async operations with clean interfaces and supports
 multi-tenant configurations through owner_id filtering.
 """
 
+import asyncio
 import json
 import logging
 import time
+from dataclasses import replace as dc_replace
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from uuid import UUID
 
 from pgdbm import AsyncDatabaseManager
@@ -30,6 +32,8 @@ from .models import (ChunkingConfig, DeleteResult, Document, DocumentAddResult,
                      DocumentWithChunks, EnrichedSearchResult, OwnerStatistics,
                      SearchQuery, SearchResult, SearchResultWithDocuments,
                      SearchType)
+from .query_expansion import QueryExpansionService
+from .reranker import RerankerService
 from .search_optimizer import OptimizedAsyncSearch
 from .validators import get_validator
 
@@ -83,6 +87,9 @@ class LLMemory:
         self._batch_processor: Optional[BatchEmbeddingProcessor] = None
         self._background_processor: Optional[BackgroundEmbeddingProcessor] = None
         self._optimized_search: Optional[OptimizedAsyncSearch] = None
+        self._reranker: Optional[RerankerService] = None
+        self._query_expander: Optional[QueryExpansionService] = None
+        self._summary_generator = self._create_summary_generator()
         self._initialized = False
 
     @classmethod
@@ -125,7 +132,9 @@ class LLMemory:
         # Create and initialize the manager
         if self._external_db:
             # Use external db manager
-            self._manager = MemoryManager.from_db_manager(self._db_manager)
+            self._manager = MemoryManager.from_db_manager(
+                self._db_manager, summary_generator=self._summary_generator
+            )
             await self._manager.initialize()
         else:
             # Create own db manager
@@ -135,6 +144,7 @@ class LLMemory:
                 enable_monitoring=self.config.enable_metrics,
                 min_connections=self.config.database.min_pool_size,
                 max_connections=self.config.database.max_pool_size,
+                summary_generator=self._summary_generator,
             )
 
         # Initialize embedding providers registry
@@ -147,6 +157,11 @@ class LLMemory:
             max_concurrent_queries=100,
             enable_query_optimization=True,
         )
+
+        # Initialize query expansion
+        self._query_expander = QueryExpansionService(self.config.search)
+        # Initialize reranker
+        self._reranker = RerankerService(self.config.search)
 
         self._initialized = True
         logger.info("LLMemory initialized successfully")
@@ -252,6 +267,11 @@ class LLMemory:
         include_parent_context: bool = False,
         context_window: int = 2,
         alpha: float = 0.5,
+        query_expansion: Optional[bool] = None,
+        max_query_variants: Optional[int] = None,
+        rerank: Optional[bool] = None,
+        rerank_top_k: Optional[int] = None,
+        rerank_return_k: Optional[int] = None,
     ) -> List[SearchResult]:
         """
         Search for documents.
@@ -269,6 +289,11 @@ class LLMemory:
             include_parent_context: Whether to include parent chunks
             context_window: Number of parent chunks to include
             alpha: Weight for hybrid search (0=text only, 1=vector only)
+            query_expansion: Override for query expansion (None = follow config)
+            max_query_variants: Override for max query variants when expansion enabled
+            rerank: Override for reranking (None = follow config)
+            rerank_top_k: Candidate count for reranker consideration
+            rerank_return_k: Preferred results prioritized by reranker
 
         Returns:
             List of SearchResult instances
@@ -286,6 +311,22 @@ class LLMemory:
         if isinstance(search_type, str):
             search_type = SearchType(search_type)
 
+        # Determine expansion behaviour
+        expansion_enabled = (
+            query_expansion
+            if query_expansion is not None
+            else self.config.search.enable_query_expansion
+        )
+        max_variants = max_query_variants or self.config.search.max_query_variants
+        if max_variants <= 0:
+            max_variants = 1
+
+        # Determine reranking behaviour
+        should_rerank = (
+            rerank if rerank is not None else self.config.search.enable_rerank
+        )
+        should_rerank = bool(should_rerank and self._reranker)
+
         # Create search query
         search_query = SearchQuery(
             owner_id=owner_id,
@@ -300,15 +341,269 @@ class LLMemory:
             include_parent_context=include_parent_context,
             context_window=context_window,
             alpha=alpha,
+            enable_query_expansion=expansion_enabled,
+            max_query_variants=max_variants,
+            rerank=should_rerank,
+            rerank_model=self.config.search.default_rerank_model,
+            rerank_top_k=rerank_top_k or self.config.search.rerank_top_k,
+            rerank_return_k=max(
+                limit, rerank_return_k or self.config.search.rerank_return_k
+            ),
         )
 
-        # Generate query embedding if needed
-        query_embedding = None
-        if search_type in [SearchType.VECTOR, SearchType.HYBRID]:
-            query_embedding = await self._generate_query_embedding(query_text)
+        variants = await self._generate_query_variants(search_query)
+        search_query.query_variants = variants
 
-        # Use manager search (optimized search can be enabled via search_optimizer module)
-        return await self._manager.search(search_query, query_embedding)
+        if len(variants) == 1:
+            if not should_rerank:
+                # Generate query embedding if needed
+                query_embedding = None
+                if search_type in [SearchType.VECTOR, SearchType.HYBRID]:
+                    query_embedding = await self._generate_query_embedding(query_text)
+
+                return await self._manager.search(search_query, query_embedding)
+
+            return await self._single_query_with_rerank(search_query)
+
+        return await self._multi_query_search(search_query, variants, should_rerank)
+
+    def _create_summary_generator(self):
+        """Create a lightweight summary generator if enabled in config."""
+        if not self.config.chunking.enable_chunk_summaries:
+            return None
+
+        max_tokens = max(10, self.config.chunking.summary_max_tokens)
+        max_words = max(10, max_tokens // 2)
+
+        def generator(chunk: DocumentChunk) -> Optional[str]:
+            text = chunk.content.strip()
+            if not text:
+                return None
+
+            words = text.split()
+            summary_words = words[:max_words]
+            summary = " ".join(summary_words)
+            if len(words) > max_words:
+                summary += "..."
+
+            # Provide a hint from metadata if available
+            title = chunk.metadata.get("title") if isinstance(chunk.metadata, dict) else None
+            if title and title not in summary:
+                summary = f"{title}: {summary}"
+
+            return summary
+
+        return generator
+
+    async def _generate_query_variants(self, query: SearchQuery) -> List[str]:
+        """Generate query variants when expansion is enabled."""
+        if not query.enable_query_expansion or not self._query_expander:
+            return [query.query_text]
+
+        variant_limit = max(1, query.max_query_variants)
+        additional_needed = variant_limit - 1
+        if additional_needed <= 0:
+            return [query.query_text]
+
+        expansions = await self._query_expander.expand(
+            query.query_text,
+            max_variants=additional_needed,
+            include_keyword_variant=self.config.search.include_keyword_variant,
+        )
+
+        ordered = [query.query_text]
+        seen = {query.query_text.lower()}
+        for variant in expansions:
+            normalized = variant.strip()
+            if not normalized:
+                continue
+            lowered = normalized.lower()
+            if lowered in seen:
+                continue
+            seen.add(lowered)
+            ordered.append(normalized)
+            if len(ordered) >= variant_limit:
+                break
+
+        return ordered[:variant_limit]
+
+    async def _multi_query_search(
+        self, base_query: SearchQuery, variants: List[str], apply_rerank: bool
+    ) -> List[SearchResult]:
+        """Execute multi-query retrieval with RRF fusion."""
+        if not self._manager:
+            raise RuntimeError("LLMemory is not initialized")
+
+        total_start = time.perf_counter()
+        variant_results: List[List[SearchResult]] = []
+        variant_stats: List[Dict[str, Any]] = []
+        embedding_required = base_query.search_type in [SearchType.VECTOR, SearchType.HYBRID]
+        embedding_cache: Dict[str, List[float]] = {}
+
+        for variant in variants:
+            variant_query = dc_replace(
+                base_query,
+                query_text=variant,
+                enable_query_expansion=False,
+                query_variants=variants,
+            )
+
+            variant_start = time.perf_counter()
+            query_embedding = None
+            if embedding_required:
+                if variant in embedding_cache:
+                    query_embedding = embedding_cache[variant]
+                else:
+                    query_embedding = await self._generate_query_embedding(variant)
+                    embedding_cache[variant] = query_embedding
+
+            results = await self._manager.search(
+                variant_query,
+                query_embedding=query_embedding,
+                disable_logging=True,
+            )
+
+            latency_ms = (time.perf_counter() - variant_start) * 1000
+            variant_results.append(results)
+            variant_stats.append(
+                {
+                    "query": variant,
+                    "latency_ms": round(latency_ms, 3),
+                    "result_count": len(results),
+                }
+            )
+
+        fused_results = self._fuse_variant_results(
+            variant_results, base_query.limit
+        )
+
+        rerank_info: Dict[str, Any] = {}
+        if apply_rerank:
+            fused_results, rerank_info = await self._apply_rerank(
+                base_query, fused_results
+            )
+
+        total_latency_ms = (time.perf_counter() - total_start) * 1000
+        diagnostics: Dict[str, Any] = {
+            "latency_ms": round(total_latency_ms, 3),
+            "backend": "multi_query",
+            "search_type": base_query.search_type.value
+            if hasattr(base_query.search_type, "value")
+            else str(base_query.search_type),
+            "result_count": len(fused_results),
+            "query_embedding_used": embedding_required,
+            "rerank_requested": base_query.rerank,
+            "rerank_applied": rerank_info.get("rerank_applied", False),
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "query_variants": variants,
+            "variant_stats": variant_stats,
+        }
+        diagnostics.update(rerank_info)
+
+        base_query.query_variants = variants
+
+        await self._manager.log_search_results(
+            base_query, fused_results, diagnostics=diagnostics
+        )
+
+        return fused_results
+
+    async def _single_query_with_rerank(
+        self, query: SearchQuery
+    ) -> List[SearchResult]:
+        """Execute single query search with optional reranking."""
+        if not self._manager:
+            raise RuntimeError("LLMemory is not initialized")
+
+        search_start = time.perf_counter()
+        query_embedding = None
+        if query.search_type in [SearchType.VECTOR, SearchType.HYBRID]:
+            query_embedding = await self._generate_query_embedding(query.query_text)
+
+        results = await self._manager.search(
+            query, query_embedding, disable_logging=True
+        )
+        search_latency_ms = (time.perf_counter() - search_start) * 1000
+
+        rerank_info: Dict[str, Any] = {}
+        if query.rerank:
+            results, rerank_info = await self._apply_rerank(query, results)
+
+        diagnostics = {
+            "latency_ms": round(
+                search_latency_ms + rerank_info.get("rerank_latency_ms", 0.0), 3
+            ),
+            "backend": query.search_type.value
+            if hasattr(query.search_type, "value")
+            else str(query.search_type),
+            "search_latency_ms": round(search_latency_ms, 3),
+            "result_count": len(results),
+            "query_embedding_used": bool(query_embedding),
+            "rerank_requested": query.rerank,
+            "rerank_applied": rerank_info.get("rerank_applied", False),
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "query_variants": [query.query_text],
+        }
+        diagnostics.update(rerank_info)
+
+        await self._manager.log_search_results(
+            query, results, query_embedding, diagnostics=diagnostics
+        )
+
+        return results
+
+    async def _apply_rerank(
+        self, query: SearchQuery, results: List[SearchResult]
+    ) -> Tuple[List[SearchResult], Dict[str, Any]]:
+        """Apply reranking if configured."""
+        if not query.rerank or not self._reranker:
+            return results, {"rerank_applied": False}
+
+        rerank_start = time.perf_counter()
+        reranked = await self._reranker.rerank(
+            query.query_text,
+            results,
+            top_k=query.rerank_top_k,
+            return_k=query.rerank_return_k,
+        )
+        rerank_latency_ms = (time.perf_counter() - rerank_start) * 1000
+
+        info: Dict[str, Any] = {
+            "rerank_applied": True,
+            "rerank_latency_ms": round(rerank_latency_ms, 3),
+            "rerank_model": query.rerank_model,
+            "rerank_top_k": query.rerank_top_k,
+            "rerank_return_k": query.rerank_return_k,
+        }
+        return reranked, info
+
+    def _fuse_variant_results(
+        self, variant_results: List[List[SearchResult]], limit: int
+    ) -> List[SearchResult]:
+        """Fuse variant results using Reciprocal Rank Fusion."""
+        rrf_constant = max(1, self.config.search.rrf_k)
+        max_candidates = max(limit * 2, 20)
+
+        score_map: Dict[UUID, float] = {}
+        chunk_lookup: Dict[UUID, SearchResult] = {}
+
+        for results in variant_results:
+            for rank, result in enumerate(results[:max_candidates]):
+                weight = 1.0 / (rrf_constant + rank + 1)
+                score_map[result.chunk_id] = score_map.get(result.chunk_id, 0.0) + weight
+                if result.chunk_id not in chunk_lookup:
+                    chunk_lookup[result.chunk_id] = result
+
+        sorted_chunks = sorted(score_map.items(), key=lambda item: item[1], reverse=True)
+
+        fused_results: List[SearchResult] = []
+        for chunk_id, score in sorted_chunks[:limit]:
+            base_result = chunk_lookup[chunk_id]
+            fused_results.append(
+                dc_replace(base_result, score=score, rrf_score=score)
+            )
+
+        return fused_results
 
     async def delete_document(self, document_id: Union[UUID, str]) -> None:
         """

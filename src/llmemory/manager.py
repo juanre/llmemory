@@ -4,10 +4,12 @@
 """High-level async manager for llmemory operations."""
 
 import hashlib
+import inspect
 import json
 import logging
+import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from pgdbm import AsyncDatabaseManager
@@ -24,7 +26,14 @@ logger = logging.getLogger(__name__)
 class MemoryManager:
     """High-level async interface for document memory operations."""
 
-    def __init__(self, db: Optional[MemoryDatabase] = None, external_db: bool = False):
+    def __init__(
+        self,
+        db: Optional[MemoryDatabase] = None,
+        external_db: bool = False,
+        summary_generator: Optional[
+            Callable[[DocumentChunk], Awaitable[Optional[str]] | Optional[str]]
+        ] = None,
+    ):
         """
         Initialize the memory manager.
 
@@ -40,6 +49,7 @@ class MemoryManager:
         self.db = db
         self._external_db = external_db
         self._initialized = False
+        self._summary_generator = summary_generator
 
     async def initialize(self) -> None:
         """Initialize the manager and database."""
@@ -64,14 +74,21 @@ class MemoryManager:
         Returns:
             Initialized MemoryManager instance
         """
+        summary_generator = kwargs.pop("summary_generator", None)
         db_manager = await create_memory_db_manager(connection_string, **kwargs)
         db = MemoryDatabase(db_manager)
-        manager = cls(db)
+        manager = cls(db, summary_generator=summary_generator)
         await manager.initialize()
         return manager
 
     @classmethod
-    def from_db_manager(cls, db_manager: AsyncDatabaseManager) -> "MemoryManager":
+    def from_db_manager(
+        cls,
+        db_manager: AsyncDatabaseManager,
+        summary_generator: Optional[
+            Callable[[DocumentChunk], Awaitable[Optional[str]] | Optional[str]]
+        ] = None,
+    ) -> "MemoryManager":
         """
         Create MemoryManager instance from existing AsyncDatabaseManager.
 
@@ -85,7 +102,7 @@ class MemoryManager:
             MemoryManager instance configured for external db management
         """
         memory_db = MemoryDatabase.from_manager(db_manager)
-        return cls(memory_db, external_db=True)
+        return cls(memory_db, external_db=True, summary_generator=summary_generator)
 
     async def add_document(
         self,
@@ -228,6 +245,9 @@ class MemoryManager:
                 document_type=document_type,
                 base_metadata=metadata or {},
             )
+
+        if self._summary_generator:
+            await self._apply_chunk_summaries(chunks)
 
         # Store chunks in database
         stored_chunks = []
@@ -587,7 +607,11 @@ class MemoryManager:
             )
 
     async def search(
-        self, query: SearchQuery, query_embedding: Optional[List[float]] = None
+        self,
+        query: SearchQuery,
+        query_embedding: Optional[List[float]] = None,
+        *,
+        disable_logging: bool = False,
     ) -> List[SearchResult]:
         """
         Perform search based on query parameters.
@@ -599,8 +623,18 @@ class MemoryManager:
         Returns:
             List of SearchResult instances
         """
+        search_start = time.perf_counter()
+        raw_results: List[Dict[str, Any]] = []
+        search_backend = "text"
+
+        search_type_value = (
+            query.search_type.value
+            if hasattr(query.search_type, "value")
+            else str(query.search_type)
+        )
+
         if query.search_type == "vector" and query_embedding:
-            results = await self.db.search_similar_chunks(
+            raw_results = await self.db.search_similar_chunks(
                 query.owner_id,
                 query_embedding,
                 limit=query.limit,
@@ -610,8 +644,9 @@ class MemoryManager:
                 date_from=query.date_from,
                 date_to=query.date_to,
             )
+            search_backend = "vector"
         elif query.search_type == "hybrid" and query_embedding:
-            results = await self.db.hybrid_search(
+            raw_results = await self.db.hybrid_search(
                 query.owner_id,
                 query.query_text,
                 query_embedding,
@@ -622,23 +657,31 @@ class MemoryManager:
                 date_from=query.date_from,
                 date_to=query.date_to,
             )
+            search_backend = "hybrid"
         else:
             # Fall back to text search
-            results = await self._text_search(query)
+            raw_results = await self._text_search(query)
+            search_backend = "text"
+
+        latency_ms = (time.perf_counter() - search_start) * 1000
 
         # Convert to SearchResult objects
         search_results = []
-        for result in results:
+        for result in raw_results:
             # Parse metadata if it's a string
             metadata = result["metadata"]
             if isinstance(metadata, str):
                 metadata = json.loads(metadata)
+            summary_text = None
+            if isinstance(metadata, dict):
+                summary_text = metadata.get("summary")
 
             search_result = SearchResult(
                 chunk_id=UUID(str(result["chunk_id"])),
                 document_id=UUID(str(result["document_id"])),
                 content=result["content"],
                 metadata=metadata,
+                summary=summary_text,
                 score=result.get(
                     "similarity", result.get("rrf_score", result.get("rank", 0))
                 ),
@@ -656,7 +699,24 @@ class MemoryManager:
             search_results.append(search_result)
 
         # Log search for analytics
-        await self._log_search(query, search_results, query_embedding)
+        diagnostics = {
+            "latency_ms": round(latency_ms, 3),
+            "backend": search_backend,
+            "search_type": search_type_value,
+            "result_count": len(search_results),
+            "query_embedding_used": bool(query_embedding),
+            "rerank_requested": query.rerank,
+            "rerank_applied": False,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "query_variants": query.query_variants
+            if query.query_variants
+            else [query.query_text],
+        }
+
+        if not disable_logging:
+            await self.log_search_results(
+                query, search_results, query_embedding, diagnostics=diagnostics
+            )
 
         return search_results
 
@@ -743,11 +803,43 @@ class MemoryManager:
 
         return chunks
 
+    async def _apply_chunk_summaries(self, chunks: List[DocumentChunk]) -> None:
+        """Generate summaries for chunks when configured."""
+        if not self._summary_generator:
+            return
+
+        for chunk in chunks:
+            # Skip if summary already present or chunk has no meaningful content
+            if chunk.metadata.get("summary") or not chunk.content.strip():
+                continue
+
+            try:
+                summary = self._summary_generator(chunk)
+                if inspect.isawaitable(summary):
+                    summary = await summary
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Chunk summary generation failed: %s", exc)
+                summary = None
+
+            if summary:
+                chunk.metadata = {**chunk.metadata, "summary": summary.strip()}
+
+    async def log_search_results(
+        self,
+        query: SearchQuery,
+        results: List[SearchResult],
+        query_embedding: Optional[List[float]] = None,
+        diagnostics: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Public helper for recording search analytics."""
+        await self._log_search(query, results, query_embedding, diagnostics)
+
     async def _log_search(
         self,
         query: SearchQuery,
         results: List[SearchResult],
         query_embedding: Optional[List[float]] = None,
+        diagnostics: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Log search for analytics."""
         # Get default provider for search logging
@@ -763,12 +855,25 @@ class MemoryManager:
             if result:
                 provider_id = result["provider_id"]
 
+        # Build results payload with diagnostics for downstream analytics
+        try:
+            serialized_results = [r.to_dict() for r in results[:5]]
+        except Exception as exc:
+            logger.error(f"Failed to serialize search results for logging: {exc}")
+            serialized_results = []
+
+        log_payload: Dict[str, Any] = {"top_results": serialized_results}
+
         insert_query = """
         INSERT INTO {{tables.search_history}} (
             owner_id, id_at_origin, query_text, provider_id, search_type,
             metadata_filter, result_count, results
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         """
+
+        # Keep diagnostics self-contained in payload to avoid schema churn
+        if diagnostics:
+            log_payload["diagnostics"] = diagnostics
 
         try:
             await self.db.db_manager.execute(
@@ -777,10 +882,12 @@ class MemoryManager:
                 query.id_at_origin or "unknown",
                 query.query_text,
                 provider_id,
-                query.search_type.value,
+                query.search_type.value
+                if hasattr(query.search_type, "value")
+                else str(query.search_type),
                 json.dumps(query.metadata_filter) if query.metadata_filter else None,
                 len(results),
-                json.dumps([r.to_dict() for r in results[:5]]),  # Log top 5
+                json.dumps(log_payload),
             )
         except Exception as e:
             logger.error(f"Failed to log search: {e}")

@@ -69,6 +69,13 @@ class ChunkingConfig:
     default_child_size: int = 200
     default_overlap: int = 50
 
+    # Summaries
+    enable_chunk_summaries: bool = False
+    summary_max_tokens: int = 120
+    summary_prompt_template: str = (
+        "Summarize the following text in one or two sentences focusing on key facts: {text}"
+    )
+
     # Min/max constraints
     min_chunk_size: int = 50
     max_chunk_size: int = 2000
@@ -100,6 +107,18 @@ class SearchConfig:
 
     # RRF parameters
     rrf_k: int = 50
+
+    # Query expansion
+    enable_query_expansion: bool = False
+    max_query_variants: int = 3
+    query_expansion_model: Optional[str] = None
+    include_keyword_variant: bool = True
+
+    # Reranking
+    enable_rerank: bool = False
+    default_rerank_model: Optional[str] = None
+    rerank_top_k: int = 50
+    rerank_return_k: int = 15
 
     # Vector search
     hnsw_ef_search: int = 100

@@ -99,6 +99,7 @@ class DocumentChunk:
     token_count: int = 0
     metadata: Dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
+    summary: Optional[str] = None
 
     # Embeddings are now stored in provider-specific tables
     # Remove the embedding field from here
@@ -118,6 +119,7 @@ class DocumentChunk:
             "token_count": self.token_count,
             "metadata": self.metadata,
             "created_at": self.created_at,
+            "summary": self.summary,
         }
 
 
@@ -179,6 +181,12 @@ class SearchQuery:
     alpha: float = 0.5  # 0 = text only, 1 = vector only
     rerank: bool = False
     rerank_model: Optional[str] = None
+    enable_query_expansion: bool = False
+    max_query_variants: int = 3
+    query_variants: Optional[List[str]] = None
+    query_expansion_model: Optional[str] = None
+    rerank_top_k: int = 50
+    rerank_return_k: int = 15
 
     # Provider selection (optional, uses default if not specified)
     embedding_provider: Optional[str] = None
@@ -198,6 +206,8 @@ class SearchResult:
     similarity: Optional[float] = None  # Vector similarity
     text_rank: Optional[float] = None  # Full-text search rank
     rrf_score: Optional[float] = None  # Reciprocal Rank Fusion score
+    rerank_score: Optional[float] = None  # Reranker score
+    summary: Optional[str] = None  # Chunk summary for prompt grounding
 
     # Parent context if requested
     parent_chunks: List["DocumentChunk"] = field(default_factory=list)
@@ -209,10 +219,12 @@ class SearchResult:
             "document_id": str(self.document_id),
             "content": self.content,
             "metadata": self.metadata,
+            "summary": self.summary,
             "score": self.score,
             "similarity": self.similarity,
             "text_rank": self.text_rank,
             "rrf_score": self.rrf_score,
+            "rerank_score": self.rerank_score,
             "parent_chunks": [
                 {
                     "chunk_id": str(chunk.chunk_id),

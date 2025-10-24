@@ -136,6 +136,9 @@ class SearchMetrics:
     total_latency_ms: float = 0
     cache_hits: int = 0
     cache_misses: int = 0
+    last_latency_ms: float = 0.0
+    last_cache_hit: Optional[bool] = None
+    last_result_count: int = 0
 
     @property
     def avg_latency_ms(self) -> float:
@@ -200,7 +203,9 @@ class OptimizedAsyncSearch:
             cache_key = self._get_cache_key(query)
             cached_results = await self._get_cached_results(cache_key)
 
-            if cached_results is not None:
+            cache_hit = cached_results is not None
+
+            if cache_hit:
                 self.metrics.cache_hits += 1
                 results = cached_results
             else:
@@ -222,6 +227,9 @@ class OptimizedAsyncSearch:
             latency_ms = (time.time() - start_time) * 1000
             self.metrics.query_count += 1
             self.metrics.total_latency_ms += latency_ms
+            self.metrics.last_latency_ms = latency_ms
+            self.metrics.last_cache_hit = cache_hit
+            self.metrics.last_result_count = len(results)
 
             if METRICS_ENABLED:
                 # Record search duration
@@ -554,11 +562,23 @@ class OptimizedAsyncSearch:
         for result in raw_results:
             chunk_id = UUID(result["chunk_id"])
 
+            metadata = result.get("metadata", {})
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except json.JSONDecodeError:
+                    metadata = {}
+
+            summary_text = None
+            if isinstance(metadata, dict):
+                summary_text = metadata.get("summary")
+
             search_result = SearchResult(
                 chunk_id=chunk_id,
                 document_id=UUID(result["document_id"]),
                 content=result["content"],
-                metadata=result["metadata"],
+                metadata=metadata if isinstance(metadata, dict) else {},
+                summary=summary_text,
                 score=result.get(
                     "similarity", result.get("rrf_score", result.get("rank", 0))
                 ),
