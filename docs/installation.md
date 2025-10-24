@@ -2,45 +2,25 @@
 
 ## Requirements
 
-Before installing llmemory, ensure you have:
-
-- Python 3.10 or higher
+- Python 3.10+
 - PostgreSQL 14+ with pgvector extension
-- OpenAI API key (if using OpenAI embeddings) or local model support
+- OpenAI API key (optional - can use local embeddings)
 
-## PostgreSQL Setup
+## Install llmemory
 
-### 1. Install PostgreSQL with pgvector
-
-#### macOS (using Homebrew)
 ```bash
-# Install PostgreSQL
-brew install postgresql@14
+pip install llmemory
 
-# Install pgvector
-brew install pgvector
-
-# Start PostgreSQL
-brew services start postgresql@14
+# Or with optional dependencies
+pip install "llmemory[monitoring]"  # Prometheus metrics
+pip install "llmemory[local]"       # Local embedding models
 ```
 
-#### Ubuntu/Debian
-```bash
-# Install PostgreSQL
-sudo apt update
-sudo apt install postgresql-14 postgresql-server-dev-14
+## PostgreSQL with pgvector
 
-# Install pgvector
-cd /tmp
-git clone --branch v0.5.0 https://github.com/pgvector/pgvector.git
-cd pgvector
-make
-sudo make install
-```
+### Docker (Easiest)
 
-#### Docker
 ```bash
-# Use the official pgvector image
 docker run -d \
   --name pgvector \
   -e POSTGRES_PASSWORD=postgres \
@@ -48,275 +28,70 @@ docker run -d \
   pgvector/pgvector:pg14
 ```
 
-### 2. Enable pgvector Extension
+### macOS
 
-Connect to your database and enable the extension:
+```bash
+brew install postgresql@14 pgvector
+brew services start postgresql@14
+```
+
+### Ubuntu/Debian
+
+```bash
+sudo apt install postgresql-14 postgresql-server-dev-14
+
+# Install pgvector
+cd /tmp
+git clone https://github.com/pgvector/pgvector.git
+cd pgvector
+make && sudo make install
+```
+
+### Enable pgvector Extension
 
 ```sql
--- Connect to your database
-psql -U postgres -d your_database
-
--- Enable pgvector
-CREATE EXTENSION IF NOT EXISTS vector;
-
--- Verify installation
-SELECT * FROM pg_extension WHERE extname = 'vector';
+CREATE EXTENSION vector;
 ```
 
-## Python Package Installation
+llmemory attempts this automatically during initialization, but may require superuser privileges.
 
-### Using uv (recommended)
+## Verify Installation
 
-```bash
-# Basic installation
-uv add llmemory
+```python
+import asyncio
+from llmemory import LLMemory
 
-# With monitoring support
-uv add "llmemory[monitoring]"
+async def test():
+    memory = LLMemory(connection_string="postgresql://localhost/postgres")
+    await memory.initialize()
+    print("llmemory installed successfully")
+    await memory.close()
 
-# With caching support
-uv add "llmemory[cache]"
-
-# With local embedding support
-uv add "llmemory[local]"
-
-# All optional dependencies
-uv add "llmemory[monitoring,cache,local]"
-```
-
-### Using pip
-
-```bash
-# Basic installation
-pip install llmemory
-
-# With monitoring support
-pip install "llmemory[monitoring]"
-
-# With caching support
-pip install "llmemory[cache]"
-
-# With local embedding support
-pip install "llmemory[local]"
-
-# All optional dependencies
-pip install "llmemory[monitoring,cache,local]"
-```
-
-### From Source
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/llmemory.git
-cd llmemory
-
-# Install with uv (recommended)
-uv add -e .
-
-# Or with pip
-pip install -e .
+asyncio.run(test())
 ```
 
 ## Configuration
 
-### 1. Environment Variables
-
-Create a `.env` file or set environment variables:
+### Environment Variables
 
 ```bash
-# Database connection
-DATABASE_URL=postgresql://user:password@localhost:5432/mydb
-
-# OpenAI configuration (if using OpenAI embeddings)
-AWORD_OPENAI_API_KEY=sk-...
-AWORD_OPENAI_MODEL=text-embedding-3-small
-
-# Alternative: Use local embeddings
-AWORD_EMBEDDING_PROVIDER=local-minilm
-AWORD_LOCAL_MODEL=all-MiniLM-L6-v2
-AWORD_LOCAL_DEVICE=cpu  # or cuda if you have GPU
-
-# Optional: Database pool settings
-AWORD_DB_MAX_POOL_SIZE=20
-
-# Optional: Logging
-AWORD_LOG_LEVEL=INFO
+DATABASE_URL=postgresql://localhost/mydb
+OPENAI_API_KEY=sk-...
 ```
 
-### 2. Verify Installation
-
-Create a test script to verify your installation:
-
-```python
-import asyncio
-from llmemory import LLMemory, DocumentType
-
-async def test_installation():
-    # Initialize memory service
-    memory = LLMemory(
-        connection_string="postgresql://localhost/testdb",
-        openai_api_key="sk-..."  # Or use local embeddings
-    )
-
-    try:
-        # Initialize database
-        await memory.initialize()
-        print("✅ Database connection successful")
-
-        # Test document addition
-        result = await memory.add_document(
-            owner_id="test-owner",
-            id_at_origin="test-user",
-            document_name="test.txt",
-            document_type=DocumentType.GENERAL,
-            content="This is a test document."
-        )
-        print(f"✅ Document added: {result.document_id}")
-
-        # Test search
-        results = await memory.search(
-            owner_id="test-owner",
-            query_text="test"
-        )
-        print(f"✅ Search successful: {len(results)} results")
-
-        # Cleanup
-        await memory.delete_document(
-            owner_id="test-owner",
-            document_id=result.document_id
-        )
-        print("✅ Cleanup successful")
-
-    finally:
-        await memory.close()
-        print("✅ Connection closed")
-
-# Run the test
-asyncio.run(test_installation())
-```
-
-## Troubleshooting
-
-### Common Issues
-
-#### 1. pgvector Extension Not Found
+### Connection String Format
 
 ```
-Error: extension "vector" is not available
+postgresql://username:password@host:port/database
 ```
 
-**Solution**: Ensure pgvector is properly installed and the PostgreSQL user has CREATE EXTENSION privileges.
-
-```sql
--- As superuser
-GRANT CREATE ON DATABASE your_database TO your_user;
+Example:
 ```
-
-#### 2. OpenAI API Key Not Found
-
+postgresql://postgres:secret@localhost:5432/myapp
 ```
-Error: OpenAI API key not found
-```
-
-**Solution**: Set the environment variable or pass it directly:
-
-```python
-# Via environment
-export AWORD_OPENAI_API_KEY=sk-...
-
-# Or in code
-memory = LLMemory(
-    connection_string="...",
-    openai_api_key="sk-..."
-)
-```
-
-#### 3. Connection Pool Exhausted
-
-```
-Error: connection pool exhausted
-```
-
-**Solution**: Increase pool size or ensure proper connection cleanup:
-
-```python
-# Increase pool size
-export AWORD_DB_MAX_POOL_SIZE=50
-
-# Always close connections
-try:
-    await memory.initialize()
-    # ... do work ...
-finally:
-    await memory.close()
-```
-
-#### 4. Local Model Download Issues
-
-```
-Error: Could not download model
-```
-
-**Solution**: Ensure you have internet access or pre-download models:
-
-```python
-# Set cache directory
-export AWORD_LOCAL_CACHE_DIR=/path/to/models
-
-# Pre-download models
-from sentence_transformers import SentenceTransformer
-model = SentenceTransformer('all-MiniLM-L6-v2')
-model.save('/path/to/models/all-MiniLM-L6-v2')
-```
-
-### Performance Optimization
-
-#### 1. Enable Connection Pooling
-
-```python
-# Share pools across services via pgdbm
-from pgdbm import AsyncDatabaseManager, DatabaseConfig
-from llmemory import LLMemory
-
-config = DatabaseConfig(connection_string="postgresql://localhost/db")
-pool = await AsyncDatabaseManager.create_shared_pool(config)
-
-service1_db = AsyncDatabaseManager(pool=pool, schema="service1")
-service2_db = AsyncDatabaseManager(pool=pool, schema="service2")
-
-service1 = LLMemory.from_db_manager(service1_db)
-service2 = LLMemory.from_db_manager(service2_db)
-```
-
-#### 2. Use Appropriate Indexes
-
-The library automatically creates optimized indexes, but ensure they're used:
-
-```sql
--- Check index usage
-EXPLAIN (ANALYZE, BUFFERS)
-SELECT * FROM document_chunks
-WHERE owner_id = 'test'
-ORDER BY embedding <-> '[...]'::vector
-LIMIT 10;
-```
-
-#### 3. Enable Monitoring
-
-Install with monitoring support to track performance:
-
-```bash
-# Using uv (recommended)
-uv add "llmemory[monitoring]"
-
-# Or using pip
-pip install "llmemory[monitoring]"
-```
-
-Then access metrics at `/metrics` endpoint if using with a web framework.
 
 ## Next Steps
 
-- Read the [Quickstart Guide](quickstart.md) for a complete example
-- Review the [API Reference](api-reference.md) for detailed documentation
-- Check out [Examples](../examples/) for real-world usage patterns
+- [Quick Start](quickstart.md) - Get started in 5 minutes
+- [Integration Guide](integration-guide.md) - Framework integration patterns
+- [API Reference](api-reference.md) - Complete API documentation
