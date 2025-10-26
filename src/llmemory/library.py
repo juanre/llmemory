@@ -162,7 +162,7 @@ class LLMemory:
         # Initialize optimized search
         self._optimized_search = OptimizedAsyncSearch(
             db=self._manager.db.db_manager,
-            cache_ttl=300,
+            cache_ttl=self.config.search.cache_ttl,
             max_concurrent_queries=100,
             enable_query_optimization=True,
             hnsw_ef_search=self.config.search.hnsw_ef_search,

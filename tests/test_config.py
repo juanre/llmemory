@@ -54,3 +54,71 @@ def test_search_config_only_has_used_fields():
     assert not hasattr(config, 'vector_search_limit'), "vector_search_limit is unused"
     assert not hasattr(config, 'text_search_limit'), "text_search_limit is unused"
     assert not hasattr(config, 'text_search_config'), "text_search_config is unused"
+
+
+def test_database_config_only_has_used_fields():
+    """Verify DatabaseConfig only contains used fields."""
+    from llmemory.config import DatabaseConfig
+
+    config = DatabaseConfig()
+
+    # Used fields
+    assert hasattr(config, 'min_pool_size')
+    assert hasattr(config, 'max_pool_size')
+    assert hasattr(config, 'connection_timeout')
+    assert hasattr(config, 'command_timeout')
+    assert hasattr(config, 'schema_name')
+    assert hasattr(config, 'hnsw_m')
+    assert hasattr(config, 'hnsw_ef_construction')
+
+    # Unused fields (table names managed by pgdbm)
+    assert not hasattr(config, 'documents_table')
+    assert not hasattr(config, 'chunks_table')
+    assert not hasattr(config, 'embeddings_queue_table')
+    assert not hasattr(config, 'search_history_table')
+    assert not hasattr(config, 'embedding_providers_table')
+    assert not hasattr(config, 'chunk_embeddings_prefix')
+    assert not hasattr(config, 'hnsw_index_name')
+
+
+@pytest.mark.asyncio
+async def test_cache_ttl_respects_config(test_db):
+    """Verify cache_ttl from config is actually used."""
+    from llmemory import LLMemory, LLMemoryConfig
+
+    config = LLMemoryConfig()
+    config.search.cache_ttl = 1800  # 30 minutes instead of default 3600
+
+    memory = LLMemory(connection_string=test_db.config.get_dsn(), config=config)
+    await memory.initialize()
+
+    # Access the optimized search
+    optimized_search = memory._optimized_search
+
+    # Verify it uses config value, not hardcoded 300
+    assert optimized_search.cache_ttl == 1800, \
+        f"Expected cache_ttl=1800 from config, got {optimized_search.cache_ttl}"
+
+    await memory.close()
+
+
+def test_llmemory_config_only_has_used_fields():
+    """Verify LLMemoryConfig only has implemented feature flags."""
+    from llmemory.config import LLMemoryConfig
+
+    config = LLMemoryConfig()
+
+    # Used fields
+    assert hasattr(config, 'embedding')
+    assert hasattr(config, 'chunking')
+    assert hasattr(config, 'search')
+    assert hasattr(config, 'database')
+    assert hasattr(config, 'validation')
+    assert hasattr(config, 'enable_metrics')
+    assert hasattr(config, 'log_level')
+
+    # Unused fields
+    assert not hasattr(config, 'enable_caching'), "Never checked in code"
+    assert not hasattr(config, 'enable_background_processing'), "Never used"
+    assert not hasattr(config, 'log_slow_queries'), "Never implemented"
+    assert not hasattr(config, 'slow_query_threshold'), "Never used"
