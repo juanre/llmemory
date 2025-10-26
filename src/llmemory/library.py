@@ -1100,6 +1100,83 @@ Alternative queries:"""
             results=enriched_results, total=len(enriched_results)
         )
 
+    async def search_with_routing(
+        self,
+        owner_id: str,
+        query_text: str,
+        enable_routing: bool = True,
+        routing_threshold: float = 0.7,
+        **search_kwargs
+    ) -> Dict[str, Any]:
+        """Search with automatic query routing.
+
+        Args:
+            owner_id: Owner identifier
+            query_text: Search query
+            enable_routing: Enable query routing (default: True)
+            routing_threshold: Confidence threshold for routing
+            **search_kwargs: Additional arguments for search()
+
+        Returns:
+            Dict with:
+            - route: RouteType (retrieval, web_search, unanswerable, clarification)
+            - confidence: float (0-1)
+            - results: List[SearchResult] (if route=retrieval)
+            - message: str (if route != retrieval)
+        """
+        if not enable_routing:
+            # Direct search without routing
+            results = await self.search(owner_id, query_text, **search_kwargs)
+            return {
+                "route": "retrieval",
+                "confidence": 1.0,
+                "results": results
+            }
+
+        # Get sample documents for routing context
+        sample_docs = await self.list_documents(owner_id, limit=5)
+        context = [doc.document_name for doc in sample_docs.documents]
+
+        # Create router
+        from .query_router import QueryRouter, RouteType
+        router = QueryRouter(
+            openai_api_key=self.openai_api_key,
+            model="gpt-4o-mini"
+        )
+
+        # Route query
+        decision = await router.route(query_text, context, routing_threshold)
+
+        if decision.route_type == RouteType.RETRIEVAL:
+            results = await self.search(owner_id, query_text, **search_kwargs)
+            return {
+                "route": "retrieval",
+                "confidence": decision.confidence,
+                "results": results,
+                "reason": decision.reason
+            }
+        elif decision.route_type == RouteType.WEB_SEARCH:
+            return {
+                "route": "web_search",
+                "confidence": decision.confidence,
+                "message": "This query requires current or external information not in your documents.",
+                "reason": decision.reason
+            }
+        elif decision.route_type == RouteType.UNANSWERABLE:
+            return {
+                "route": "unanswerable",
+                "confidence": decision.confidence,
+                "message": "I cannot answer this type of query.",
+                "reason": decision.reason
+            }
+        else:  # CLARIFICATION
+            return {
+                "route": "clarification",
+                "confidence": decision.confidence,
+                "message": "Could you please provide more details about your question?",
+                "reason": decision.reason
+            }
+
     async def get_statistics(
         self, owner_id: str, include_breakdown: bool = False
     ) -> OwnerStatistics:

@@ -19,6 +19,8 @@ from .models import (ChunkingConfig, DeleteResult, Document, DocumentAddResult,
                      DocumentWithChunks, EmbeddingJob, EmbeddingStatus,
                      EnrichedSearchResult, OwnerStatistics, SearchQuery,
                      SearchResult, SearchResultWithDocuments, SearchType)
+from .query_router import QueryRouter, RouteDecision, RouteType
+from .reranker import CrossEncoderReranker, OpenAIResponsesReranker
 
 __version__ = "0.2.0"
 __all__ = [
@@ -58,4 +60,11 @@ __all__ = [
     "ConnectionError",
     "DocumentNotFoundError",
     "PermissionError",
+    # Rerankers
+    "CrossEncoderReranker",
+    "OpenAIResponsesReranker",
+    # Query Routing
+    "QueryRouter",
+    "RouteDecision",
+    "RouteType",
 ]
