@@ -118,6 +118,71 @@ pip install "llmemory[reranker-local]"  # For cross-encoder reranking support
 pip install "llmemory[bench]"       # For benchmarking harness
 ```
 
+## Claude Code Skills
+
+llmemory provides **expert guidance skills** for Claude Code that teach Claude how to work with the library effectively. When you use Claude Code with llmemory, these skills automatically activate to provide:
+
+- ✅ Production-ready code examples
+- ✅ Best practices and patterns
+- ✅ Common pitfalls to avoid
+- ✅ Architecture guidance
+- ✅ Testing strategies
+
+**No manual needed** - just ask Claude naturally and the right skills load automatically!
+
+### Installation
+
+```bash
+# In Claude Code terminal, add the marketplace
+/plugin marketplace add juanre/ai-tools
+
+# Install all llmemory skills (recommended)
+/plugin install llmemory@juanre-ai-tools
+
+# Or install individual skills
+/plugin install llmemory-hybrid-search@juanre-ai-tools
+/plugin install llmemory-rag@juanre-ai-tools
+```
+
+### Available Skills
+
+| Skill | Description | Install |
+|-------|-------------|---------|
+| `llmemory` | All llmemory skills (recommended) | `/plugin install llmemory@juanre-ai-tools` |
+| `llmemory-basic-usage` | Getting started and basic operations | `/plugin install llmemory-basic-usage@juanre-ai-tools` |
+| `llmemory-hybrid-search` | Vector + BM25 hybrid search | `/plugin install llmemory-hybrid-search@juanre-ai-tools` |
+| `llmemory-multi-query` | Query expansion for better results | `/plugin install llmemory-multi-query@juanre-ai-tools` |
+| `llmemory-multi-tenant` | Multi-tenant SaaS patterns | `/plugin install llmemory-multi-tenant@juanre-ai-tools` |
+| `llmemory-rag` | Complete RAG systems | `/plugin install llmemory-rag@juanre-ai-tools` |
+
+### How It Works
+
+**Example: Building a RAG system**
+
+**You ask:**
+> "Build a RAG system with hybrid search for customer support docs"
+
+**What happens:**
+1. Claude sees "RAG", "hybrid search"
+2. Automatically loads `llmemory-hybrid-search` and `llmemory-rag` skills
+3. Guides you through document ingestion, search setup, and retrieval
+4. Shows you how to combine vector + keyword search
+
+**Result:** Complete RAG implementation with best practices built-in!
+
+**Example: Multi-tenant document search**
+
+**You ask:**
+> "Add document search with owner-based isolation for my SaaS app"
+
+**What happens:**
+1. Claude sees "SaaS", "owner-based isolation"
+2. Loads `llmemory-multi-tenant` skill
+3. Provides expert guidance on multi-tenant patterns
+4. Shows you exactly how to implement owner isolation
+
+**Result:** Production-ready multi-tenant search with proper data isolation!
+
 ## Documentation
 
 - 📖 [Installation Guide](docs/installation.md) - Detailed setup instructions
