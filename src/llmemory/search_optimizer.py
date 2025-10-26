@@ -163,11 +163,13 @@ class OptimizedAsyncSearch:
         cache_ttl: int = 300,  # 5 minutes
         max_concurrent_queries: int = 100,
         enable_query_optimization: bool = True,
+        hnsw_ef_search: Optional[int] = None,
     ):
         self.db = db
         self.cache_ttl = cache_ttl
         self.max_concurrent_queries = max_concurrent_queries
         self.enable_query_optimization = enable_query_optimization
+        self.hnsw_ef_search = hnsw_ef_search
 
         # In-memory cache (replace with Redis in production)
         self._cache: Dict[str, Tuple[List[Dict], datetime]] = {}
@@ -352,7 +354,7 @@ class OptimizedAsyncSearch:
         """
 
         db_start = time.time()
-        results = await self.db.fetch_all(final_query, *params)
+        results = await self._fetch_all(final_query, params)
 
         if METRICS_ENABLED:
             database_query_duration.labels(query_type="vector_search").observe(
@@ -456,7 +458,7 @@ class OptimizedAsyncSearch:
 
         # Track database query time
         db_start = time.time()
-        results = await self.db.fetch_all(final_query, *params)
+        results = await self._fetch_all(final_query, params, set_hnsw=False)
 
         if METRICS_ENABLED:
             database_query_duration.labels(query_type="text_search").observe(
@@ -497,6 +499,16 @@ class OptimizedAsyncSearch:
         return self._fast_reciprocal_rank_fusion(
             vector_results, text_results, query.alpha, query.limit
         )
+
+    async def _fetch_all(
+        self, query: str, params: List[Any], set_hnsw: bool = True
+    ) -> List[Dict[str, Any]]:
+        if set_hnsw and self.hnsw_ef_search:
+            ef_search = max(1, int(self.hnsw_ef_search))
+            async with self.db.transaction() as conn:
+                await conn.execute(f"SET hnsw.ef_search = {ef_search}")
+                return await conn.fetch_all(query, *params)
+        return await self.db.fetch_all(query, *params)
 
     def _fast_reciprocal_rank_fusion(
         self,
@@ -598,58 +610,116 @@ class OptimizedAsyncSearch:
     async def _batch_get_parent_contexts(
         self, chunk_ids: List[UUID], context_window: int
     ) -> Dict[UUID, List[DocumentChunk]]:
-        """Get parent contexts for multiple chunks in batch."""
+        """Batch retrieve parent context chunks.
+
+        Returns hierarchical parents first, then adjacent chunks if needed.
+        """
         if not chunk_ids:
             return {}
 
-        # Use a more efficient batch query
-        query = """
-        WITH target_chunks AS (
-            SELECT unnest($1::uuid[]) as chunk_id
-        ),
-        context_chunks AS (
+        # First, get hierarchical parents via parent_chunk_id
+        parent_query = """
             SELECT
-                tc.chunk_id as target_id,
-                c.chunk_id,
-                c.content,
-                c.chunk_level,
-                c.chunk_index,
-                c.parent_chunk_id,
-                c.document_id
-            FROM target_chunks tc
-            JOIN {{tables.document_chunks}} target ON target.chunk_id = tc.chunk_id
-            JOIN {{tables.document_chunks}} c ON c.document_id = target.document_id
-            WHERE abs(c.chunk_index - target.chunk_index) <= $2
-            AND c.chunk_id != tc.chunk_id
-        )
-        SELECT * FROM context_chunks
-        ORDER BY target_id, chunk_index
+                child.chunk_id as child_id,
+                parent.chunk_id,
+                parent.document_id,
+                parent.parent_chunk_id,
+                parent.chunk_index,
+                parent.chunk_level,
+                parent.content,
+                parent.content_hash,
+                parent.token_count,
+                parent.metadata,
+                parent.created_at,
+                parent.summary
+            FROM {{tables.document_chunks}} child
+            JOIN {{tables.document_chunks}} parent ON child.parent_chunk_id = parent.chunk_id
+            WHERE child.chunk_id = ANY($1)
+            ORDER BY parent.chunk_level DESC
         """
 
-        results = await self.db.fetch_all(
-            query, [str(cid) for cid in chunk_ids], context_window
-        )
+        parent_rows = await self.db.fetch_all(parent_query, chunk_ids)
 
-        # Group by target chunk
-        contexts = {}
-        for row in results:
-            target_id = UUID(row["target_id"])
-            if target_id not in contexts:
-                contexts[target_id] = []
+        result: Dict[UUID, List[DocumentChunk]] = {}
 
-            chunk = DocumentChunk(
-                chunk_id=UUID(row["chunk_id"]),
-                document_id=UUID(row["document_id"]),
-                content=row["content"],
-                chunk_level=row["chunk_level"],
+        for row in parent_rows:
+            child_id = row["child_id"]
+            parent_chunk = DocumentChunk(
+                chunk_id=row["chunk_id"],
+                document_id=row["document_id"],
+                parent_chunk_id=row["parent_chunk_id"],
                 chunk_index=row["chunk_index"],
-                parent_chunk_id=(
-                    UUID(row["parent_chunk_id"]) if row["parent_chunk_id"] else None
-                ),
+                chunk_level=row["chunk_level"],
+                content=row["content"],
+                content_hash=row["content_hash"],
+                token_count=row["token_count"],
+                metadata=row["metadata"] or {},
+                created_at=row["created_at"],
+                summary=row.get("summary")
             )
-            contexts[target_id].append(chunk)
 
-        return contexts
+            if child_id not in result:
+                result[child_id] = []
+            result[child_id].append(parent_chunk)
+
+        # For chunks without hierarchical parents, get adjacent chunks
+        chunks_needing_adjacent = [
+            chunk_id for chunk_id in chunk_ids
+            if chunk_id not in result or len(result[chunk_id]) < context_window
+        ]
+
+        if chunks_needing_adjacent and context_window > 0:
+            # Get adjacent chunks by chunk_index
+            adjacent_query = """
+                SELECT DISTINCT
+                    target.chunk_id as target_id,
+                    c.chunk_id,
+                    c.document_id,
+                    c.parent_chunk_id,
+                    c.chunk_index,
+                    c.chunk_level,
+                    c.content,
+                    c.content_hash,
+                    c.token_count,
+                    c.metadata,
+                    c.created_at,
+                    c.summary
+                FROM {{tables.document_chunks}} target
+                JOIN {{tables.document_chunks}} c
+                    ON c.document_id = target.document_id
+                WHERE target.chunk_id = ANY($1)
+                  AND c.chunk_id != target.chunk_id
+                  AND abs(c.chunk_index - target.chunk_index) <= $2
+                ORDER BY c.chunk_index
+            """
+
+            adjacent_rows = await self.db.fetch_all(
+                adjacent_query,
+                chunks_needing_adjacent,
+                context_window
+            )
+
+            for row in adjacent_rows:
+                target_id = row["target_id"]
+                adjacent_chunk = DocumentChunk(
+                    chunk_id=row["chunk_id"],
+                    document_id=row["document_id"],
+                    parent_chunk_id=row["parent_chunk_id"],
+                    chunk_index=row["chunk_index"],
+                    chunk_level=row["chunk_level"],
+                    content=row["content"],
+                    content_hash=row["content_hash"],
+                    token_count=row["token_count"],
+                    metadata=row["metadata"] or {},
+                    created_at=row["created_at"],
+                    summary=row.get("summary")
+                )
+
+                if target_id not in result:
+                    result[target_id] = []
+                result[target_id].append(adjacent_chunk)
+
+        return result
 
     def _get_cache_key(self, query: SearchQuery) -> str:
         """Generate cache key for a search query."""
