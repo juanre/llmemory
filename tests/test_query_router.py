@@ -161,3 +161,42 @@ async def test_search_with_routing_no_documents(memory_library):
     assert result["confidence"] == 1.0
     assert "results" in result
     assert len(result["results"]) == 0
+
+
+@pytest.mark.asyncio
+async def test_search_with_routing_no_api_key(memory_library):
+    """Test search_with_routing falls back gracefully when no API key is set."""
+    memory = memory_library
+
+    # Add test document
+    from llmemory.models import DocumentType
+    await memory.add_document(
+        owner_id="test-owner",
+        id_at_origin="test-doc-1",
+        document_name="python_guide.txt",
+        document_type=DocumentType.TEXT,
+        content="Python is a high-level programming language.",
+    )
+
+    # Temporarily remove API key to test fallback
+    original_api_key = memory.openai_api_key
+    memory.openai_api_key = None
+
+    try:
+        # Test search with routing enabled but no API key
+        result = await memory.search_with_routing(
+            owner_id="test-owner",
+            query_text="python programming",
+            enable_routing=True,  # Routing enabled but should fall back
+            limit=5
+        )
+
+        # Should fall back to direct retrieval
+        assert result["route"] == "retrieval"
+        assert result["confidence"] == 0.5
+        assert "results" in result
+        assert result["reason"] == "Query routing unavailable (no API key)"
+        assert len(result["results"]) > 0  # Should still get search results
+    finally:
+        # Restore original API key
+        memory.openai_api_key = original_api_key

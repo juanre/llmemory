@@ -252,6 +252,10 @@ class LLMemory:
             chunking_config=chunking_config,
         )
 
+        # Mark chunks as contextualized if feature is enabled
+        if self.config.chunking.enable_contextual_retrieval and chunks:
+            await self._mark_chunks_as_contextualized(chunks)
+
         embeddings_created = 0
         # Generate embeddings if requested
         if generate_embeddings and chunks:
@@ -1131,6 +1135,21 @@ Alternative queries:"""
                 "route": "retrieval",
                 "confidence": 1.0,
                 "results": results
+            }
+
+        # Check for OpenAI API key before attempting routing
+        if not self.openai_api_key:
+            logger.warning(
+                "Query routing requires OpenAI API key. "
+                "Falling back to direct retrieval. "
+                "Set OPENAI_API_KEY environment variable to enable routing."
+            )
+            results = await self.search(owner_id, query_text, **search_kwargs)
+            return {
+                "route": "retrieval",
+                "confidence": 0.5,
+                "results": results,
+                "reason": "Query routing unavailable (no API key)"
             }
 
         # Get sample documents for routing context
