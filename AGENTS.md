@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 - Core implementation lives in `src/llmemory`; keep orchestration in `manager.py`, database work in `db.py`, and embedding adapters in `embedding_providers.py`.
 - Integration and regression suites sit in `tests/`, grouped by feature with shared fixtures in `tests/conftest.py` and sample corpora under `tests/res/`.
-- `docs/` holds reference guides, `examples/` provides runnable snippets, and `run_server.py` is the local API demo entrypoint.
+- `docs/` holds reference guides and comprehensive implementation plans.
 - The `pgdbm` directory is vendored; adjust it in tandem with dependency pins in `pyproject.toml`.
 
 ## Build, Test, and Development Commands
