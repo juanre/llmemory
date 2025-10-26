@@ -489,27 +489,34 @@ Alternative queries:"""
         model_name = self.config.search.default_rerank_model or ""
 
         if provider == "openai":
-            try:
-                reranker = OpenAIResponsesReranker(
-                    model=model_name or "gpt-4.1-mini",
-                    max_candidates=self.config.search.rerank_top_k,
-                )
-
-                async def callback(
-                    query_text: str, results: Sequence[SearchResult]
-                ) -> Sequence[float]:
-                    return await reranker.score(query_text, results)
-
-                score_callback = callback
-                logger.info("OpenAI reranker initialised with model %s", reranker.model)
-            except ImportError as exc:
+            if not self.openai_api_key:
                 logger.warning(
-                    "OpenAI reranker unavailable: %s. Falling back to lexical.", exc
+                    "rerank_provider='openai' configured but no OpenAI API key available. "
+                    "Falling back to lexical reranker."
                 )
-            except Exception as exc:  # pragma: no cover - runtime errors
-                logger.error("OpenAI reranker error: %s", exc)
+            else:
+                try:
+                    reranker = OpenAIResponsesReranker(
+                        model=model_name or "gpt-4.1-mini",
+                        max_candidates=self.config.search.rerank_top_k,
+                        api_key=self.openai_api_key,
+                    )
 
-        elif model_name.startswith("cross-encoder/"):
+                    async def callback(
+                        query_text: str, results: Sequence[SearchResult]
+                    ) -> Sequence[float]:
+                        return await reranker.score(query_text, results)
+
+                    score_callback = callback
+                    logger.info("OpenAI reranker initialised with model %s", reranker.model)
+                except ImportError as exc:
+                    logger.warning(
+                        "OpenAI reranker unavailable: %s. Falling back to lexical.", exc
+                    )
+                except ValueError as exc:
+                    logger.error("OpenAI reranker configuration error: %s", exc)
+
+        elif provider in ["cross-encoder", "local"] or model_name.startswith("cross-encoder/"):
             try:
                 cross_encoder = CrossEncoderReranker(
                     model_name=model_name,
@@ -530,9 +537,9 @@ Alternative queries:"""
                     model_name,
                     exc,
                 )
-            except Exception as exc:  # pragma: no cover - init edge cases
+            except ValueError as exc:
                 logger.error(
-                    "Cross-encoder initialisation error for '%s': %s", model_name, exc
+                    "Cross-encoder configuration error for '%s': %s", model_name, exc
                 )
 
         return RerankerService(self.config.search, score_callback=score_callback)
