@@ -5,9 +5,10 @@ import json
 import pytest
 from unittest.mock import AsyncMock, Mock
 
-from llmemory.config import LLMemoryConfig
+from llmemory.config import LLMemoryConfig, SearchConfig
 from llmemory.library import LLMemory
 from llmemory.models import DocumentType, SearchType
+from llmemory.query_expansion import QueryExpansionService
 
 
 @pytest.mark.asyncio
@@ -269,3 +270,93 @@ async def test_llm_expansion_auto_wired_from_config(memory_db):
 
     finally:
         await memory.close()
+
+
+@pytest.mark.asyncio
+async def test_query_expansion_heuristic_variants():
+    """Test heuristic variant generation."""
+    config = SearchConfig()
+    config.max_query_variants = 3
+    config.include_keyword_variant = True
+
+    service = QueryExpansionService(config)
+
+    variants = await service.expand("how to improve customer satisfaction", max_variants=3)
+
+    # Should get 3 variants
+    assert len(variants) <= 3
+
+    # Should include OR variant
+    assert any("OR" in v for v in variants), "Should include OR variant"
+
+    # Should include quoted variant
+    assert any(v.startswith('"') and v.endswith('"') for v in variants), \
+        "Should include quoted variant"
+
+    # Variants should not include original
+    assert "how to improve customer satisfaction" not in [v.lower() for v in variants]
+
+
+@pytest.mark.asyncio
+async def test_query_expansion_with_llm_callback():
+    """Test LLM callback is preferred over heuristics."""
+    config = SearchConfig()
+    config.max_query_variants = 3
+
+    # Create mock callback
+    async def mock_llm(query: str, limit: int):
+        return [
+            "semantic variant one",
+            "semantic variant two",
+            "semantic variant three"
+        ]
+
+    service = QueryExpansionService(config, llm_callback=mock_llm)
+
+    variants = await service.expand("test query", max_variants=3)
+
+    # Should use LLM variants, not heuristics
+    assert "semantic variant one" in variants
+    assert "semantic variant two" in variants
+    assert len(variants) == 3
+
+
+@pytest.mark.asyncio
+async def test_query_expansion_fallback_on_llm_failure():
+    """Test fallback to heuristics when LLM callback fails."""
+    config = SearchConfig()
+    config.max_query_variants = 3
+    config.include_keyword_variant = True
+
+    # Create failing callback
+    async def failing_llm(query: str, limit: int):
+        raise Exception("LLM API failure")
+
+    service = QueryExpansionService(config, llm_callback=failing_llm)
+
+    variants = await service.expand("test query expansion", max_variants=3)
+
+    # Should fall back to heuristics
+    assert len(variants) > 0, "Should fall back to heuristics on LLM failure"
+    assert any("OR" in v for v in variants), "Should include heuristic OR variant"
+
+
+@pytest.mark.asyncio
+async def test_query_expansion_timeout():
+    """Test LLM callback timeout (8 seconds)."""
+    import asyncio
+
+    config = SearchConfig()
+
+    # Create slow callback
+    async def slow_llm(query: str, limit: int):
+        await asyncio.sleep(10)  # Exceeds 8 second timeout
+        return ["variant"]
+
+    service = QueryExpansionService(config, llm_callback=slow_llm)
+
+    # Should timeout and fall back to heuristics
+    variants = await service.expand("test query", max_variants=2)
+
+    # Should have heuristic variants (fallback)
+    assert len(variants) > 0
