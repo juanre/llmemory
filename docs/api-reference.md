@@ -289,6 +289,10 @@ LLMEMORY_ENABLE_RERANK=1
 LLMEMORY_ENABLE_CHUNK_SUMMARIES=1
 LLMEMORY_RERANK_TOP_K=50
 LLMEMORY_RERANK_RETURN_K=15
+LLMEMORY_RERANK_MODEL=cross-encoder/ms-marco-MiniLM-L6-v2
+LLMEMORY_RERANK_DEVICE=cpu
+LLMEMORY_RERANK_BATCH_SIZE=16
+LLMEMORY_RERANK_PROVIDER=openai
 
 # Logging
 LLMEMORY_LOG_LEVEL=INFO
@@ -306,6 +310,8 @@ config.database.max_pool_size = 30
 config.search.enable_query_expansion = True
 config.search.enable_rerank = True
 config.chunking.enable_chunk_summaries = True
+config.search.default_rerank_model = "gpt-4.1-mini"
+config.search.rerank_provider = "openai"
 
 set_config(config)
 ```

@@ -18,7 +18,10 @@ llmemory provides intelligent document processing with:
 ## What's New
 
 - 🔁 **Multi-query expansion** – Generate semantic + keyword variants automatically and fuse results with reciprocal rank fusion
-- 🎯 **Configurable reranking** – Plug in learned rerankers (or use built-in heuristics) for higher precision on the final hit list
+- 🎯 **Configurable reranking** – Plug in OpenAI or cross-encoder rerankers (or use built-in heuristics) for higher precision on the final hit list
+- 🧭 **Query routing** – Automatic answerability detection routes queries to best retrieval strategy
+- 🎨 **Contextual retrieval** – Anthropic-style chunk enrichment with document context for improved semantic matching
+- ⚙️ **HNSW presets** – Choose `fast`, `balanced`, or `accurate` profiles to tune pgvector index parameters and query-time `ef_search`
 - 📝 **Chunk summaries** – Capture short, metadata-aware synopses during ingestion and surface them with every search hit
 - 📈 **Richer diagnostics** – Search history now records query variants, latency breakdowns, rerank status, and summary usage for easy tuning
 
@@ -36,10 +39,10 @@ llmemory provides a production-ready solution for these challenges.
 
 ## Key Features
 
-- 🚀 **Fast Search** – HNSW indexes for sub-100 ms vector searches, plus multi-query expansion and reranking for tougher queries
+- 🚀 **Fast Search** – HNSW indexes for sub-100 ms vector searches, with multi-query expansion and optional cross-encoder reranking for harder queries
 - 🌍 **Multi-language** – Automatic detection and processing for 14+ languages
-- 📊 **Smart Chunking** – Document-type aware chunking with optional inline summaries and context windows
-- 🔍 **Hybrid Search** – Combines vector and text search with reciprocal rank fusion, summary-aware prompting, and rerank scores
+- 📊 **Smart Chunking** – Document-type aware chunking with contextual enrichment, optional inline summaries, and hierarchical parent context
+- 🔍 **Hybrid Search** – Combines vector and text search with reciprocal rank fusion, query routing, and rerank scores
 - 📈 **Observable** – Built-in Prometheus metrics and detailed search diagnostics
 - 🏢 **Multi-tenant** – Owner-based isolation for SaaS applications
 - 🔌 **Flexible Embeddings** – Support for OpenAI and local embedding models
@@ -104,11 +107,15 @@ Or with optional dependencies:
 uv add "llmemory[monitoring]"  # For Prometheus metrics
 uv add "llmemory[cache]"       # For Redis caching
 uv add "llmemory[local]"       # For local embeddings
+uv add "llmemory[reranker-local]"  # For local cross-encoder reranking
+uv add "llmemory[bench]"       # For BEIR benchmarking harness
 
 # Using pip
 pip install "llmemory[monitoring]"  # For Prometheus metrics
 pip install "llmemory[cache]"       # For Redis caching
 pip install "llmemory[local]"       # For local embeddings
+pip install "llmemory[reranker-local]"  # For cross-encoder reranking support
+pip install "llmemory[bench]"       # For benchmarking harness
 ```
 
 ## Documentation
@@ -121,6 +128,7 @@ pip install "llmemory[local]"       # For local embeddings
 - 🗄️ [Migration Guide](docs/migrations.md) - How migrations work in each pattern
 - 📊 [Monitoring Guide](docs/monitoring.md) - Production monitoring setup
 - 💡 [Examples](examples/) - Working examples for common use cases
+- 🧪 `bench/beir_runner.py` - BEIR benchmarking harness (requires `llmemory[bench]`)
 
 ## Performance
 

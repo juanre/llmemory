@@ -58,6 +58,7 @@ class MemoryManager:
 
         await self.db.initialize()
         await self.db.apply_migrations()
+        await self.db.configure_hnsw_indexes()
         self._initialized = True
 
     @classmethod
@@ -75,8 +76,16 @@ class MemoryManager:
             Initialized MemoryManager instance
         """
         summary_generator = kwargs.pop("summary_generator", None)
+        hnsw_ef_search = kwargs.pop("hnsw_ef_search", None)
+        hnsw_m = kwargs.pop("hnsw_m", None)
+        hnsw_ef_construction = kwargs.pop("hnsw_ef_construction", None)
         db_manager = await create_memory_db_manager(connection_string, **kwargs)
-        db = MemoryDatabase(db_manager)
+        db = MemoryDatabase(
+            db_manager,
+            hnsw_ef_search=hnsw_ef_search,
+            hnsw_m=hnsw_m,
+            hnsw_ef_construction=hnsw_ef_construction,
+        )
         manager = cls(db, summary_generator=summary_generator)
         await manager.initialize()
         return manager
@@ -88,6 +97,9 @@ class MemoryManager:
         summary_generator: Optional[
             Callable[[DocumentChunk], Awaitable[Optional[str]] | Optional[str]]
         ] = None,
+        hnsw_ef_search: Optional[int] = None,
+        hnsw_m: Optional[int] = None,
+        hnsw_ef_construction: Optional[int] = None,
     ) -> "MemoryManager":
         """
         Create MemoryManager instance from existing AsyncDatabaseManager.
@@ -101,7 +113,12 @@ class MemoryManager:
         Returns:
             MemoryManager instance configured for external db management
         """
-        memory_db = MemoryDatabase.from_manager(db_manager)
+        memory_db = MemoryDatabase.from_manager(
+            db_manager,
+            hnsw_ef_search=hnsw_ef_search,
+            hnsw_m=hnsw_m,
+            hnsw_ef_construction=hnsw_ef_construction,
+        )
         return cls(memory_db, external_db=True, summary_generator=summary_generator)
 
     async def add_document(
@@ -822,7 +839,9 @@ class MemoryManager:
                 summary = None
 
             if summary:
-                chunk.metadata = {**chunk.metadata, "summary": summary.strip()}
+                summary_text = summary.strip()
+                chunk.summary = summary_text
+                chunk.metadata = {**chunk.metadata, "summary": summary_text}
 
     async def log_search_results(
         self,

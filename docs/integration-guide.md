@@ -124,10 +124,17 @@ for hit in results:
     print(hit.summary, hit.score)
 ```
 
-To integrate a learned reranker (e.g., Cohere ReRank, OpenAI ReRank, Anthropic Claude), pass a scoring callback when creating `LLMemory`. The callback receives the query text and the candidate `SearchResult` objects, and should return an ordered list of scores:
+To integrate a learned reranker (e.g., Cohere ReRank, OpenAI ReRank, Anthropic Claude), pass a scoring callback when creating `LLMemory`. Install the local cross-encoder dependencies if you plan to run the built-in reranker:
+
+```bash
+uv add "llmemory[reranker-local]"
+```
+
+The callback receives the query text and the candidate `SearchResult` objects, and should return an ordered list of scores:
 
 ```python
-from llmemory.reranker import RerankerService
+from llmemory.models import SearchResult
+from llmemory.reranker import CrossEncoderReranker, RerankerService
 
 async def cohere_rerank(query: str, results: list[SearchResult]) -> list[float]:
     payload = {
@@ -144,7 +151,32 @@ memory = LLMemory(
 memory._reranker = RerankerService(memory.config.search, score_callback=cohere_rerank)
 ```
 
+You can also tune pgvector's HNSW index for different latency/recall trade-offs by setting a preset before initialising llmemory:
+
+```bash
+# Faster lookups with slightly lower recall
+LLMEMORY_HNSW_PROFILE=fast
+
+# Higher recall at increased query cost
+LLMEMORY_HNSW_PROFILE=accurate
+```
+
+For OpenAI-based reranking (using the same API key configured for embeddings), set:
+
+```bash
+LLMEMORY_RERANK_PROVIDER=openai
+LLMEMORY_RERANK_MODEL=gpt-4.1-mini
+```
+
 Every search is logged to `search_history` with diagnostic metadata (`query_variants`, `backend`, latency breakdowns, rerank flags), so you can monitor adoption and tune thresholds in production.
+
+For offline evaluation, install the benchmarking extras (`uv add "llmemory[bench]"`) and run:
+
+```bash
+python bench/beir_runner.py nq --dataset-dir ./datasets --connection postgresql://localhost/llmemory_bench --query-expansion --rerank
+```
+
+The harness ingests the specified BEIR dataset into llmemory, executes the configured pipeline, and prints standard metrics (nDCG, Recall, MRR).
 
 ### FastAPI
 

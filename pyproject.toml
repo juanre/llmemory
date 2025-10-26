@@ -50,6 +50,14 @@ local = [
     "sentence-transformers>=2.2.0",
     "torch>=2.0.0",
 ]
+reranker-local = [
+    "sentence-transformers>=2.2.0",
+    "torch>=2.0.0",
+]
+bench = [
+    "beir>=2.0.0",
+    "scikit-learn>=1.3.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/juanreyero/llmemory"

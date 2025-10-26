@@ -91,11 +91,21 @@ async def _ensure_pgvector_extension(db: AsyncDatabaseManager) -> None:
 class MemoryDatabase:
     """High-level async interface for llmemory database operations."""
 
-    def __init__(self, db: AsyncDatabaseManager, external_db: bool = False):
+    def __init__(
+        self,
+        db: AsyncDatabaseManager,
+        external_db: bool = False,
+        hnsw_ef_search: Optional[int] = None,
+        hnsw_m: Optional[int] = None,
+        hnsw_ef_construction: Optional[int] = None,
+    ):
         self.db = db
         self._initialized = False
         self._external_db = external_db
         self.migration_manager: Optional[AsyncMigrationManager] = None
+        self._hnsw_ef_search = hnsw_ef_search
+        self._hnsw_m = hnsw_m
+        self._hnsw_ef_construction = hnsw_ef_construction
 
     @property
     def db_manager(self) -> AsyncDatabaseManager:
@@ -104,7 +114,12 @@ class MemoryDatabase:
 
     @classmethod
     def from_manager(
-        cls, db_manager: AsyncDatabaseManager, schema: str = "llmemory"
+        cls,
+        db_manager: AsyncDatabaseManager,
+        schema: str = "llmemory",
+        hnsw_ef_search: Optional[int] = None,
+        hnsw_m: Optional[int] = None,
+        hnsw_ef_construction: Optional[int] = None,
     ) -> "MemoryDatabase":
         """
         Create MemoryDatabase instance from existing AsyncDatabaseManager.
@@ -122,7 +137,13 @@ class MemoryDatabase:
         # The schema should already be set correctly by the caller
         # This follows the pattern from the integration guide where
         # the parent creates: AsyncDatabaseManager(pool=shared_pool, schema="llmemory")
-        return cls(db_manager, external_db=True)
+        return cls(
+            db_manager,
+            external_db=True,
+            hnsw_ef_search=hnsw_ef_search,
+            hnsw_m=hnsw_m,
+            hnsw_ef_construction=hnsw_ef_construction,
+        )
 
     async def initialize(self) -> None:
         """Initialize database and prepare statements."""
@@ -138,6 +159,34 @@ class MemoryDatabase:
         # Register prepared statements for performance
         self._register_prepared_statements()
         self._initialized = True
+
+    async def configure_hnsw_indexes(self) -> None:
+        """Ensure HNSW index options reflect the configured presets."""
+        if self._hnsw_m is None or self._hnsw_ef_construction is None:
+            return
+
+        try:
+            providers = await self.db.fetch_all(
+                "SELECT table_name FROM {{tables.embedding_providers}}"
+            )
+        except Exception as exc:  # pragma: no cover - database issues
+            logger.warning("Failed to fetch embedding providers for HNSW tuning: %s", exc)
+            return
+
+        schema = self.db.schema or "public"
+        for row in providers:
+            table_name = row["table_name"]
+            index_name = f"idx_{table_name}_embedding"
+            alter_sql = (
+                f'ALTER INDEX IF EXISTS "{schema}"."{index_name}" '
+                f"SET (m = {int(self._hnsw_m)}, ef_construction = {int(self._hnsw_ef_construction)})"
+            )
+            try:
+                await self.db.execute(alter_sql)
+            except Exception as exc:  # pragma: no cover
+                logger.warning(
+                    "Skipping HNSW tuning for index %s: %s", index_name, exc
+                )
 
     def _register_prepared_statements(self) -> None:
         """Register frequently used queries as prepared statements."""
@@ -394,9 +443,14 @@ class MemoryDatabase:
         params.append(limit)
 
         query = "\n".join(query_parts)
-        results = await self.db.fetch_all(query, *params)
 
-        return results
+        if self._hnsw_ef_search:
+            ef_search = max(1, int(self._hnsw_ef_search))
+            async with self.db.transaction() as conn:
+                await conn.execute(f"SET hnsw.ef_search = {ef_search}")
+                return await conn.fetch_all(query, *params)
+
+        return await self.db.fetch_all(query, *params)
 
     async def hybrid_search(
         self,

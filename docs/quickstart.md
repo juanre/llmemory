@@ -12,6 +12,8 @@ Get started with llmemory in 5 minutes.
 
 ```bash
 pip install llmemory
+# Optional: install local reranker dependencies
+uv add "llmemory[reranker-local]"
 ```
 
 ## Basic Example
@@ -115,6 +117,9 @@ OPENAI_API_KEY=sk-...
 LLMEMORY_ENABLE_QUERY_EXPANSION=1
 LLMEMORY_ENABLE_RERANK=1
 LLMEMORY_ENABLE_CHUNK_SUMMARIES=1
+LLMEMORY_RERANK_MODEL=gpt-4.1-mini
+LLMEMORY_RERANK_PROVIDER=openai
+LLMEMORY_HNSW_PROFILE=balanced
 ```
 
 Or programmatic:
