@@ -13,11 +13,12 @@ from typing import Any, AsyncGenerator, Dict
 import pytest
 import pytest_asyncio
 from dotenv import load_dotenv
+from openai import AsyncOpenAI
+
 from llmemory.db import MemoryDatabase
 from llmemory.library import LLMemory
 from llmemory.manager import MemoryManager
 from llmemory.models import DocumentType
-from openai import AsyncOpenAI
 
 # Load environment variables
 load_dotenv()
@@ -154,9 +155,7 @@ async def memory_library(test_db_factory) -> AsyncGenerator[LLMemory, None]:
     db_manager = await test_db_factory.create_db(suffix="memory_lib", schema="llmemory")
 
     # Create LLMemory instance
-    memory = LLMemory(
-        connection_string=db_manager.config.get_dsn(), openai_api_key=openai_api_key
-    )
+    memory = LLMemory(connection_string=db_manager.config.get_dsn(), openai_api_key=openai_api_key)
 
     # Initialize
     await memory.initialize()

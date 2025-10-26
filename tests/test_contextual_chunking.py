@@ -2,7 +2,8 @@
 # ABOUTME: Verifies chunks get contextualized flag even without embeddings, ensuring correct architecture.
 
 import pytest
-from llmemory import LLMemory, DocumentType, LLMemoryConfig
+
+from llmemory import DocumentType, LLMemory, LLMemoryConfig
 
 
 @pytest.mark.asyncio
@@ -23,7 +24,7 @@ async def test_contextual_metadata_set_during_chunking(test_db_factory):
         document_name="Test Document",
         document_type=DocumentType.REPORT,
         content="This is test content for chunking.",
-        generate_embeddings=False  # Key: no embeddings
+        generate_embeddings=False,  # Key: no embeddings
     )
 
     # Get chunks - they should still have contextualized flag
@@ -31,8 +32,9 @@ async def test_contextual_metadata_set_during_chunking(test_db_factory):
 
     # Assert metadata flag was set during chunking, not embedding
     assert len(chunks) > 0, "Should have chunks"
-    assert chunks[0].metadata.get("contextualized") is True, \
-        "Chunks should be marked as contextualized even without embeddings"
+    assert (
+        chunks[0].metadata.get("contextualized") is True
+    ), "Chunks should be marked as contextualized even without embeddings"
 
     await memory.close()
 
@@ -55,14 +57,15 @@ async def test_contextual_metadata_not_set_when_disabled(test_db_factory):
         document_name="Test Document",
         document_type=DocumentType.REPORT,
         content="This is test content.",
-        generate_embeddings=False
+        generate_embeddings=False,
     )
 
     # Get chunks - they should NOT have contextualized flag
     chunks = await memory.get_document_chunks(result.document.document_id)
 
     assert len(chunks) > 0, "Should have chunks"
-    assert chunks[0].metadata.get("contextualized") is not True, \
-        "Chunks should not be marked as contextualized when feature is disabled"
+    assert (
+        chunks[0].metadata.get("contextualized") is not True
+    ), "Chunks should not be marked as contextualized when feature is disabled"
 
     await memory.close()

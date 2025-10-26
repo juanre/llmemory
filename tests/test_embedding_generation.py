@@ -1,6 +1,7 @@
 """Tests for OpenAI integration."""
 
 import pytest
+
 from llmemory.models import DocumentType, SearchType
 
 

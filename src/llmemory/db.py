@@ -10,8 +10,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from pgdbm import (AsyncDatabaseManager, AsyncMigrationManager,
-                      DatabaseConfig, MonitoredAsyncDatabaseManager)
+from pgdbm import (
+    AsyncDatabaseManager,
+    AsyncMigrationManager,
+    DatabaseConfig,
+    MonitoredAsyncDatabaseManager,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -68,9 +72,7 @@ async def _ensure_pgvector_extension(db: AsyncDatabaseManager) -> None:
     """Ensure pgvector extension is enabled in the database."""
     try:
         # Check if pgvector is already enabled
-        result = await db.fetch_value(
-            "SELECT 1 FROM pg_extension WHERE extname = 'vector'"
-        )
+        result = await db.fetch_value("SELECT 1 FROM pg_extension WHERE extname = 'vector'")
 
         if not result:
             # Enable pgvector extension (requires superuser privileges)
@@ -184,9 +186,7 @@ class MemoryDatabase:
             try:
                 await self.db.execute(alter_sql)
             except Exception as exc:  # pragma: no cover
-                logger.warning(
-                    "Skipping HNSW tuning for index %s: %s", index_name, exc
-                )
+                logger.warning("Skipping HNSW tuning for index %s: %s", index_name, exc)
 
     def _register_prepared_statements(self) -> None:
         """Register frequently used queries as prepared statements."""
@@ -296,14 +296,10 @@ class MemoryDatabase:
         """Insert embedding for a chunk into the appropriate provider table."""
         # Use provided connection or get new one
         if conn:
-            return await self._insert_embedding_with_conn(
-                conn, chunk_id, embedding, provider_id
-            )
+            return await self._insert_embedding_with_conn(conn, chunk_id, embedding, provider_id)
         else:
             async with self.db.transaction() as tx:
-                return await self._insert_embedding_with_conn(
-                    tx, chunk_id, embedding, provider_id
-                )
+                return await self._insert_embedding_with_conn(tx, chunk_id, embedding, provider_id)
 
     async def _insert_embedding_with_conn(
         self,
@@ -575,9 +571,7 @@ class MemoryDatabase:
             results_with_scores.append(result)
 
         # Sort by RRF score
-        sorted_results = sorted(
-            results_with_scores, key=lambda x: x["rrf_score"], reverse=True
-        )
+        sorted_results = sorted(results_with_scores, key=lambda x: x["rrf_score"], reverse=True)
 
         return sorted_results[:limit]
 
@@ -676,9 +670,7 @@ class MemoryDatabase:
                 document_id,
             )
         else:
-            count = await self.db.fetch_value(
-                "SELECT COUNT(*) FROM {{tables.document_chunks}}"
-            )
+            count = await self.db.fetch_value("SELECT COUNT(*) FROM {{tables.document_chunks}}")
         return int(count) if count else 0
 
     async def get_embedding_providers(self) -> List[Dict[str, Any]]:
@@ -826,9 +818,7 @@ class MemoryDatabase:
         doc_count = await self.count_documents(owner_id)
 
         # Delete documents (chunks cascade)
-        await self.db.execute(
-            "DELETE FROM {{tables.documents}} WHERE owner_id = $1", owner_id
-        )
+        await self.db.execute("DELETE FROM {{tables.documents}} WHERE owner_id = $1", owner_id)
 
         return {"documents_deleted": doc_count}
 

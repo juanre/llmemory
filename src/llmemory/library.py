@@ -19,22 +19,30 @@ from uuid import UUID
 
 from pgdbm import AsyncDatabaseManager
 
-from .batch_processor import (BackgroundEmbeddingProcessor,
-                              BatchEmbeddingProcessor)
+from .batch_processor import BackgroundEmbeddingProcessor, BatchEmbeddingProcessor
 from .config import LLMemoryConfig, apply_hnsw_profile, get_config
 from .embedding_providers import EmbeddingProvider, EmbeddingProviderFactory
 from .embeddings import EmbeddingGenerator
-from .exceptions import (ConfigurationError, DocumentNotFoundError,
-                         ValidationError)
+from .exceptions import ConfigurationError, DocumentNotFoundError, ValidationError
 from .manager import MemoryManager
-from .models import (ChunkingConfig, DeleteResult, Document, DocumentAddResult,
-                     DocumentChunk, DocumentListResult, DocumentType,
-                     DocumentWithChunks, EnrichedSearchResult, OwnerStatistics,
-                     SearchQuery, SearchResult, SearchResultWithDocuments,
-                     SearchType)
-from .query_expansion import QueryExpansionService, ExpansionCallback
-from .reranker import (CrossEncoderReranker, OpenAIResponsesReranker,
-                       RerankerService)
+from .models import (
+    ChunkingConfig,
+    DeleteResult,
+    Document,
+    DocumentAddResult,
+    DocumentChunk,
+    DocumentListResult,
+    DocumentType,
+    DocumentWithChunks,
+    EnrichedSearchResult,
+    OwnerStatistics,
+    SearchQuery,
+    SearchResult,
+    SearchResultWithDocuments,
+    SearchType,
+)
+from .query_expansion import ExpansionCallback, QueryExpansionService
+from .reranker import CrossEncoderReranker, OpenAIResponsesReranker, RerankerService
 from .search_optimizer import OptimizedAsyncSearch
 from .validators import get_validator
 
@@ -68,9 +76,7 @@ class LLMemory:
             ConfigurationError: If configuration is invalid
         """
         if not connection_string and not db_manager:
-            raise ConfigurationError(
-                "Either connection string or db_manager is required"
-            )
+            raise ConfigurationError("Either connection string or db_manager is required")
 
         self.connection_string = connection_string
         self.openai_api_key = openai_api_key
@@ -171,8 +177,7 @@ class LLMemory:
         # Initialize query expansion and reranking
         expansion_callback = self._create_query_expansion_callback()
         self._query_expander = QueryExpansionService(
-            self.config.search,
-            llm_callback=expansion_callback
+            self.config.search, llm_callback=expansion_callback
         )
         self._reranker = self._create_reranker_service()
 
@@ -339,9 +344,7 @@ class LLMemory:
             max_variants = 1
 
         # Determine reranking behaviour
-        should_rerank = (
-            rerank if rerank is not None else self.config.search.enable_rerank
-        )
+        should_rerank = rerank if rerank is not None else self.config.search.enable_rerank
         should_rerank = bool(should_rerank and self._reranker)
 
         # Create search query
@@ -363,9 +366,7 @@ class LLMemory:
             rerank=should_rerank,
             rerank_model=self.config.search.default_rerank_model,
             rerank_top_k=rerank_top_k or self.config.search.rerank_top_k,
-            rerank_return_k=max(
-                limit, rerank_return_k or self.config.search.rerank_return_k
-            ),
+            rerank_return_k=max(limit, rerank_return_k or self.config.search.rerank_return_k),
         )
 
         variants = await self._generate_query_variants(search_query)
@@ -456,24 +457,21 @@ Alternative queries:"""
                     messages=[
                         {
                             "role": "system",
-                            "content": "You are a query expansion expert. Generate diverse, semantically similar search queries."
+                            "content": "You are a query expansion expert. Generate diverse, semantically similar search queries.",
                         },
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
+                        {"role": "user", "content": prompt},
                     ],
                     temperature=0.7,
                     max_tokens=200,
-                    timeout=5.0
+                    timeout=5.0,
                 )
 
                 # Parse variants from response
                 content = response.choices[0].message.content.strip()
                 variants = [
                     line.strip()
-                    for line in content.split('\n')
-                    if line.strip() and not line.strip().startswith(('#', '-', '*'))
+                    for line in content.split("\n")
+                    if line.strip() and not line.strip().startswith(("#", "-", "*"))
                 ]
 
                 return variants[:max_variants]
@@ -487,7 +485,9 @@ Alternative queries:"""
     def _create_reranker_service(self) -> RerankerService:
         """Instantiate reranker service with optional cross-encoder backend."""
 
-        score_callback: Optional[Callable[[str, Sequence[SearchResult]], Awaitable[Sequence[float]]]] = None
+        score_callback: Optional[
+            Callable[[str, Sequence[SearchResult]], Awaitable[Sequence[float]]]
+        ] = None
 
         provider = (self.config.search.rerank_provider or "lexical").lower()
         model_name = self.config.search.default_rerank_model or ""
@@ -514,9 +514,7 @@ Alternative queries:"""
                     score_callback = callback
                     logger.info("OpenAI reranker initialised with model %s", reranker.model)
                 except ImportError as exc:
-                    logger.warning(
-                        "OpenAI reranker unavailable: %s. Falling back to lexical.", exc
-                    )
+                    logger.warning("OpenAI reranker unavailable: %s. Falling back to lexical.", exc)
                 except ValueError as exc:
                     logger.error("OpenAI reranker configuration error: %s", exc)
 
@@ -542,9 +540,7 @@ Alternative queries:"""
                     exc,
                 )
             except ValueError as exc:
-                logger.error(
-                    "Cross-encoder configuration error for '%s': %s", model_name, exc
-                )
+                logger.error("Cross-encoder configuration error for '%s': %s", model_name, exc)
 
         return RerankerService(self.config.search, score_callback=score_callback)
 
@@ -626,23 +622,21 @@ Alternative queries:"""
                 }
             )
 
-        fused_results = self._fuse_variant_results(
-            variant_results, base_query.limit
-        )
+        fused_results = self._fuse_variant_results(variant_results, base_query.limit)
 
         rerank_info: Dict[str, Any] = {}
         if apply_rerank:
-            fused_results, rerank_info = await self._apply_rerank(
-                base_query, fused_results
-            )
+            fused_results, rerank_info = await self._apply_rerank(base_query, fused_results)
 
         total_latency_ms = (time.perf_counter() - total_start) * 1000
         diagnostics: Dict[str, Any] = {
             "latency_ms": round(total_latency_ms, 3),
             "backend": "multi_query",
-            "search_type": base_query.search_type.value
-            if hasattr(base_query.search_type, "value")
-            else str(base_query.search_type),
+            "search_type": (
+                base_query.search_type.value
+                if hasattr(base_query.search_type, "value")
+                else str(base_query.search_type)
+            ),
             "result_count": len(fused_results),
             "query_embedding_used": embedding_required,
             "rerank_requested": base_query.rerank,
@@ -655,15 +649,11 @@ Alternative queries:"""
 
         base_query.query_variants = variants
 
-        await self._manager.log_search_results(
-            base_query, fused_results, diagnostics=diagnostics
-        )
+        await self._manager.log_search_results(base_query, fused_results, diagnostics=diagnostics)
 
         return fused_results
 
-    async def _single_query_with_rerank(
-        self, query: SearchQuery
-    ) -> List[SearchResult]:
+    async def _single_query_with_rerank(self, query: SearchQuery) -> List[SearchResult]:
         """Execute single query search with optional reranking."""
         if not self._manager:
             raise RuntimeError("LLMemory is not initialized")
@@ -673,9 +663,7 @@ Alternative queries:"""
         if query.search_type in [SearchType.VECTOR, SearchType.HYBRID]:
             query_embedding = await self._generate_query_embedding(query.query_text)
 
-        results = await self._manager.search(
-            query, query_embedding, disable_logging=True
-        )
+        results = await self._manager.search(query, query_embedding, disable_logging=True)
         search_latency_ms = (time.perf_counter() - search_start) * 1000
 
         rerank_info: Dict[str, Any] = {}
@@ -683,12 +671,12 @@ Alternative queries:"""
             results, rerank_info = await self._apply_rerank(query, results)
 
         diagnostics = {
-            "latency_ms": round(
-                search_latency_ms + rerank_info.get("rerank_latency_ms", 0.0), 3
+            "latency_ms": round(search_latency_ms + rerank_info.get("rerank_latency_ms", 0.0), 3),
+            "backend": (
+                query.search_type.value
+                if hasattr(query.search_type, "value")
+                else str(query.search_type)
             ),
-            "backend": query.search_type.value
-            if hasattr(query.search_type, "value")
-            else str(query.search_type),
             "search_latency_ms": round(search_latency_ms, 3),
             "result_count": len(results),
             "query_embedding_used": bool(query_embedding),
@@ -752,9 +740,7 @@ Alternative queries:"""
         fused_results: List[SearchResult] = []
         for chunk_id, score in sorted_chunks[:limit]:
             base_result = chunk_lookup[chunk_id]
-            fused_results.append(
-                dc_replace(base_result, score=score, rrf_score=score)
-            )
+            fused_results.append(dc_replace(base_result, score=score, rrf_score=score))
 
         return fused_results
 
@@ -903,9 +889,7 @@ Alternative queries:"""
             )
             documents.append(doc)
 
-        return DocumentListResult(
-            documents=documents, total=total, limit=limit, offset=offset
-        )
+        return DocumentListResult(documents=documents, total=total, limit=limit, offset=offset)
 
     async def get_document(
         self,
@@ -981,9 +965,7 @@ Alternative queries:"""
                     chunk_id=UUID(str(row["chunk_id"])),
                     document_id=UUID(str(row["document_id"])),
                     parent_chunk_id=(
-                        UUID(str(row["parent_chunk_id"]))
-                        if row["parent_chunk_id"]
-                        else None
+                        UUID(str(row["parent_chunk_id"])) if row["parent_chunk_id"] else None
                     ),
                     chunk_index=row["chunk_index"],
                     chunk_level=row["chunk_level"],
@@ -995,9 +977,7 @@ Alternative queries:"""
                 )
                 chunks.append(chunk)
 
-        return DocumentWithChunks(
-            document=document, chunks=chunks, chunk_count=chunk_count
-        )
+        return DocumentWithChunks(document=document, chunks=chunks, chunk_count=chunk_count)
 
     async def search_with_documents(
         self,
@@ -1100,9 +1080,7 @@ Alternative queries:"""
                 )
                 enriched_results.append(enriched_result)
 
-        return SearchResultWithDocuments(
-            results=enriched_results, total=len(enriched_results)
-        )
+        return SearchResultWithDocuments(results=enriched_results, total=len(enriched_results))
 
     async def search_with_routing(
         self,
@@ -1110,7 +1088,7 @@ Alternative queries:"""
         query_text: str,
         enable_routing: bool = True,
         routing_threshold: float = 0.7,
-        **search_kwargs
+        **search_kwargs,
     ) -> Dict[str, Any]:
         """Search with automatic query routing.
 
@@ -1131,11 +1109,7 @@ Alternative queries:"""
         if not enable_routing:
             # Direct search without routing
             results = await self.search(owner_id, query_text, **search_kwargs)
-            return {
-                "route": "retrieval",
-                "confidence": 1.0,
-                "results": results
-            }
+            return {"route": "retrieval", "confidence": 1.0, "results": results}
 
         # Check for OpenAI API key before attempting routing
         if not self.openai_api_key:
@@ -1149,7 +1123,7 @@ Alternative queries:"""
                 "route": "retrieval",
                 "confidence": 0.5,
                 "results": results,
-                "reason": "Query routing unavailable (no API key)"
+                "reason": "Query routing unavailable (no API key)",
             }
 
         # Get sample documents for routing context
@@ -1158,10 +1132,8 @@ Alternative queries:"""
 
         # Create router
         from .query_router import QueryRouter, RouteType
-        router = QueryRouter(
-            openai_api_key=self.openai_api_key,
-            model="gpt-4o-mini"
-        )
+
+        router = QueryRouter(openai_api_key=self.openai_api_key, model="gpt-4o-mini")
 
         # Route query
         decision = await router.route(query_text, context, routing_threshold)
@@ -1172,28 +1144,28 @@ Alternative queries:"""
                 "route": "retrieval",
                 "confidence": decision.confidence,
                 "results": results,
-                "reason": decision.reason
+                "reason": decision.reason,
             }
         elif decision.route_type == RouteType.WEB_SEARCH:
             return {
                 "route": "web_search",
                 "confidence": decision.confidence,
                 "message": "This query requires current or external information not in your documents.",
-                "reason": decision.reason
+                "reason": decision.reason,
             }
         elif decision.route_type == RouteType.UNANSWERABLE:
             return {
                 "route": "unanswerable",
                 "confidence": decision.confidence,
                 "message": "I cannot answer this type of query.",
-                "reason": decision.reason
+                "reason": decision.reason,
             }
         else:  # CLARIFICATION
             return {
                 "route": "clarification",
                 "confidence": decision.confidence,
                 "message": "Could you please provide more details about your question?",
-                "reason": decision.reason
+                "reason": decision.reason,
             }
 
     async def get_statistics(
@@ -1234,9 +1206,7 @@ Alternative queries:"""
         chunk_result = await self._manager.db.db.fetch_one(chunk_query, owner_id)
 
         chunk_count = chunk_result["chunk_count"] if chunk_result else 0
-        total_size_bytes = (
-            int(chunk_result["estimated_bytes"] or 0) if chunk_result else 0
-        )
+        total_size_bytes = int(chunk_result["estimated_bytes"] or 0) if chunk_result else 0
 
         # Get document type breakdown if requested
         type_breakdown = None
@@ -1247,13 +1217,10 @@ Alternative queries:"""
             WHERE owner_id = $1
             GROUP BY document_type
             """
-            breakdown_rows = await self._manager.db.db.fetch_all(
-                breakdown_query, owner_id
-            )
+            breakdown_rows = await self._manager.db.db.fetch_all(breakdown_query, owner_id)
 
             type_breakdown = {
-                DocumentType(row["document_type"]): row["count"]
-                for row in breakdown_rows
+                DocumentType(row["document_type"]): row["count"] for row in breakdown_rows
             }
 
         # Get date range
@@ -1345,9 +1312,7 @@ Alternative queries:"""
                 chunk_id=UUID(str(row["chunk_id"])),
                 document_id=UUID(str(row["document_id"])),
                 parent_chunk_id=(
-                    UUID(str(row["parent_chunk_id"]))
-                    if row["parent_chunk_id"]
-                    else None
+                    UUID(str(row["parent_chunk_id"])) if row["parent_chunk_id"] else None
                 ),
                 chunk_index=row["chunk_index"],
                 chunk_level=row["chunk_level"],
@@ -1442,9 +1407,7 @@ Alternative queries:"""
             FROM {{tables.documents}}
             WHERE owner_id = $1 AND metadata @> $2::jsonb
             """
-            rows = await self._manager.db.db.fetch_all(
-                query, owner_id, json.dumps(metadata_filter)
-            )
+            rows = await self._manager.db.db.fetch_all(query, owner_id, json.dumps(metadata_filter))
 
             # Delete each matching document
             for row in rows:
@@ -1452,15 +1415,11 @@ Alternative queries:"""
                 await self._manager.delete_document(doc_id)
                 deleted_ids.append(doc_id)
 
-        return DeleteResult(
-            deleted_count=len(deleted_ids), deleted_document_ids=deleted_ids
-        )
+        return DeleteResult(deleted_count=len(deleted_ids), deleted_document_ids=deleted_ids)
 
     # Embedding Management
 
-    async def process_pending_embeddings(
-        self, batch_size: int = 100, max_batches: int = 10
-    ) -> int:
+    async def process_pending_embeddings(self, batch_size: int = 100, max_batches: int = 10) -> int:
         """
         Process pending embeddings in batches.
 
@@ -1526,9 +1485,7 @@ Alternative queries:"""
         provider = await self._get_embedding_provider()
         return EmbeddingGenerator(provider)
 
-    async def _get_embedding_provider(
-        self, provider_id: Optional[str] = None
-    ) -> EmbeddingProvider:
+    async def _get_embedding_provider(self, provider_id: Optional[str] = None) -> EmbeddingProvider:
         """Get embedding provider instance."""
         if provider_id is None:
             provider_id = self.config.embedding.default_provider
@@ -1538,8 +1495,8 @@ Alternative queries:"""
             if not provider_config:
                 raise ConfigurationError(f"Provider {provider_id} not configured")
 
-            self._embedding_providers[provider_id] = (
-                EmbeddingProviderFactory.create_provider(provider_id, provider_config)
+            self._embedding_providers[provider_id] = EmbeddingProviderFactory.create_provider(
+                provider_id, provider_config
             )
 
         return self._embedding_providers[provider_id]
@@ -1566,7 +1523,7 @@ Alternative queries:"""
                 WHERE chunk_id = $2
                 """,
                 json.dumps({"contextualized": True}),
-                str(chunk.chunk_id)
+                str(chunk.chunk_id),
             )
 
     def _contextualize_chunk(self, chunk: DocumentChunk, document: Document) -> Tuple[str, bool]:
@@ -1582,15 +1539,13 @@ Alternative queries:"""
         contextualized_text = self.config.chunking.context_template.format(
             document_name=document.document_name,
             document_type=document.document_type.value,
-            content=chunk.content
+            content=chunk.content,
         )
 
         return contextualized_text, True
 
     async def _generate_embeddings_for_chunks(
-        self,
-        chunks: List[DocumentChunk],
-        document: Optional[Document] = None
+        self, chunks: List[DocumentChunk], document: Optional[Document] = None
     ) -> int:
         """Generate embeddings for a list of chunks. Returns count of successful embeddings."""
         generator = await self._get_embedding_generator()
@@ -1608,9 +1563,7 @@ Alternative queries:"""
                 await self._manager.update_chunk_embedding(chunk.chunk_id, embedding)
                 successful_count += 1
             except Exception as e:
-                logger.error(
-                    f"Failed to generate embedding for chunk {chunk.chunk_id}: {e}"
-                )
+                logger.error(f"Failed to generate embedding for chunk {chunk.chunk_id}: {e}")
 
         return successful_count
 

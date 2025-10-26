@@ -10,7 +10,7 @@ from typing import Dict, List
 from beir.datasets.data_loader import GenericDataLoader
 from beir.retrieval.evaluation import EvaluateRetrieval
 
-from llmemory import LLMemory, DocumentType, SearchType
+from llmemory import DocumentType, LLMemory, SearchType
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,9 @@ async def run_queries(
     return results
 
 
-def evaluate(run: Dict[str, Dict[str, float]], qrels: Dict[str, Dict[str, int]]) -> Dict[str, float]:
+def evaluate(
+    run: Dict[str, Dict[str, float]], qrels: Dict[str, Dict[str, int]]
+) -> Dict[str, float]:
     if not run:
         return {}
 
@@ -106,9 +108,9 @@ def evaluate(run: Dict[str, Dict[str, float]], qrels: Dict[str, Dict[str, int]])
 
 async def benchmark(args) -> None:
     data_path = Path(args.dataset_dir).expanduser()
-    corpus, queries, qrels = GenericDataLoader(
-        data_folder=str(data_path / args.dataset)
-    ).load(split=args.split)
+    corpus, queries, qrels = GenericDataLoader(data_folder=str(data_path / args.dataset)).load(
+        split=args.split
+    )
 
     memory = LLMemory(connection_string=args.connection)
     await memory.initialize()
@@ -161,8 +163,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default="hierarchical",
         help="Chunking strategy used during ingestion",
     )
-    parser.add_argument("--doc-limit", type=int, default=0, help="Limit number of documents ingested")
-    parser.add_argument("--query-limit", type=int, default=0, help="Limit number of queries executed")
+    parser.add_argument(
+        "--doc-limit", type=int, default=0, help="Limit number of documents ingested"
+    )
+    parser.add_argument(
+        "--query-limit", type=int, default=0, help="Limit number of queries executed"
+    )
     return parser
 
 

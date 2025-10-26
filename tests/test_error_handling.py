@@ -3,19 +3,21 @@
 
 """Comprehensive error handling tests for llmemory."""
 
+from uuid import UUID
+
 import pytest
+
 from llmemory import (
-    LLMemory,
-    ValidationError,
-    DatabaseError,
-    EmbeddingError,
-    SearchError,
-    DocumentNotFoundError,
     ConfigurationError,
+    DatabaseError,
+    DocumentNotFoundError,
     DocumentType,
+    EmbeddingError,
+    LLMemory,
+    SearchError,
+    ValidationError,
 )
 from llmemory.config import LLMemoryConfig
-from uuid import UUID
 
 
 @pytest.mark.asyncio
@@ -66,9 +68,7 @@ async def test_document_not_found_error(test_db_factory):
     await memory.initialize()
 
     with pytest.raises(DocumentNotFoundError):
-        await memory.get_document(
-            document_id=UUID("00000000-0000-0000-0000-000000000000")
-        )
+        await memory.get_document(document_id=UUID("00000000-0000-0000-0000-000000000000"))
 
     await memory.close()
 
@@ -81,9 +81,7 @@ async def test_embedding_error_on_invalid_api_key(test_db_factory):
     We verify the embedding failed but document was created.
     """
     db_manager = await test_db_factory.create_db(suffix="error_test4", schema="llmemory")
-    memory = LLMemory(
-        connection_string=db_manager.config.get_dsn(), openai_api_key="sk-invalid"
-    )
+    memory = LLMemory(connection_string=db_manager.config.get_dsn(), openai_api_key="sk-invalid")
     await memory.initialize()
 
     # Document should be added successfully even if embeddings fail

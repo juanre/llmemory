@@ -18,9 +18,14 @@ logger = logging.getLogger(__name__)
 
 # Try to import prometheus_client
 try:
-    from prometheus_client import (CONTENT_TYPE_LATEST, REGISTRY,
-                                   CollectorRegistry, Gauge, Info,
-                                   generate_latest)
+    from prometheus_client import (
+        CONTENT_TYPE_LATEST,
+        REGISTRY,
+        CollectorRegistry,
+        Gauge,
+        Info,
+        generate_latest,
+    )
 
     PROMETHEUS_AVAILABLE = True
 except ImportError:
@@ -38,17 +43,11 @@ class SystemMetrics:
         # System metrics
         self.cpu_usage = Gauge("llmemory_cpu_usage_percent", "CPU usage percentage")
 
-        self.memory_usage = Gauge(
-            "llmemory_memory_usage_bytes", "Memory usage in bytes"
-        )
+        self.memory_usage = Gauge("llmemory_memory_usage_bytes", "Memory usage in bytes")
 
-        self.memory_percent = Gauge(
-            "llmemory_memory_usage_percent", "Memory usage percentage"
-        )
+        self.memory_percent = Gauge("llmemory_memory_usage_percent", "Memory usage percentage")
 
-        self.disk_usage = Gauge(
-            "llmemory_disk_usage_percent", "Disk usage percentage", ["path"]
-        )
+        self.disk_usage = Gauge("llmemory_disk_usage_percent", "Disk usage percentage", ["path"])
 
         # Database connection metrics
         self.db_connections_active = Gauge(
@@ -61,9 +60,7 @@ class SystemMetrics:
         )
 
         # Application info
-        self.app_info = Info(
-            "llmemory_app", "Application version and environment info"
-        )
+        self.app_info = Info("llmemory_app", "Application version and environment info")
 
         # Set initial app info
         self.app_info.info({"version": "0.2.0", "environment": "production"})
@@ -88,9 +85,7 @@ class SystemMetrics:
             # Database pool metrics if available
             if db_pool:
                 # Assuming asyncpg pool
-                self.db_connections_active.set(
-                    db_pool.get_size() - db_pool.get_idle_size()
-                )
+                self.db_connections_active.set(db_pool.get_size() - db_pool.get_idle_size())
                 self.db_connections_idle.set(db_pool.get_idle_size())
 
         except Exception as e:
@@ -205,9 +200,7 @@ def get_metrics_handler():
 
 
 # Create a background agent for periodic metrics collection
-async def metrics_collection_loop(
-    system_metrics: SystemMetrics, db_pool=None, interval: int = 30
-):
+async def metrics_collection_loop(system_metrics: SystemMetrics, db_pool=None, interval: int = 30):
     """Background agent to collect system metrics periodically."""
     if not PROMETHEUS_AVAILABLE:
         return

@@ -1,6 +1,7 @@
 import pytest
-from llmemory.query_router import QueryRouter, RouteDecision, RouteType
+
 from llmemory.models import DocumentType
+from llmemory.query_router import QueryRouter, RouteDecision, RouteType
 
 
 @pytest.mark.asyncio
@@ -34,7 +35,7 @@ async def test_route_answerable_query(monkeypatch):
     # Answerable from context
     decision = await router.route(
         query="What is machine learning?",
-        document_context=["Machine learning is a subset of AI..."]
+        document_context=["Machine learning is a subset of AI..."],
     )
 
     assert decision.route_type == RouteType.RETRIEVAL
@@ -72,7 +73,7 @@ async def test_route_web_search_query(monkeypatch):
 
     decision = await router.route(
         query="What is the current weather in Paris?",
-        document_context=["Historical climate data for Paris..."]
+        document_context=["Historical climate data for Paris..."],
     )
 
     assert decision.route_type == RouteType.WEB_SEARCH
@@ -108,8 +109,7 @@ async def test_route_unanswerable_query(monkeypatch):
     router = QueryRouter(openai_api_key="sk-test")
 
     decision = await router.route(
-        query="What do you think about this?",
-        document_context=["Technical documentation..."]
+        query="What do you think about this?", document_context=["Technical documentation..."]
     )
 
     assert decision.route_type == RouteType.UNANSWERABLE
@@ -136,7 +136,7 @@ async def test_search_with_routing_integration(memory_library):
         owner_id="test-owner",
         query_text="machine learning algorithms",
         enable_routing=False,
-        limit=5
+        limit=5,
     )
 
     assert result["route"] == "retrieval"
@@ -151,10 +151,7 @@ async def test_search_with_routing_no_documents(memory_library):
 
     # Test search without documents - should still work
     result = await memory.search_with_routing(
-        owner_id="test-owner3",
-        query_text="python programming",
-        enable_routing=False,
-        limit=5
+        owner_id="test-owner3", query_text="python programming", enable_routing=False, limit=5
     )
 
     assert result["route"] == "retrieval"
@@ -170,6 +167,7 @@ async def test_search_with_routing_no_api_key(memory_library):
 
     # Add test document
     from llmemory.models import DocumentType
+
     await memory.add_document(
         owner_id="test-owner",
         id_at_origin="test-doc-1",
@@ -188,7 +186,7 @@ async def test_search_with_routing_no_api_key(memory_library):
             owner_id="test-owner",
             query_text="python programming",
             enable_routing=True,  # Routing enabled but should fall back
-            limit=5
+            limit=5,
         )
 
         # Should fall back to direct retrieval

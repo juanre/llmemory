@@ -1,6 +1,7 @@
 """Test shared pool functionality for llmemory."""
 
 import pytest
+
 from llmemory import LLMemory
 from llmemory.db import MemoryDatabase
 from llmemory.manager import MemoryManager

@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
+
 from llmemory.config import LLMemoryConfig
 from llmemory.exceptions import DatabaseError, EmbeddingError, ValidationError
 from llmemory.library import LLMemory
@@ -137,9 +138,7 @@ class TestLLMemoryValidation:
         config = LLMemoryConfig()
         # Mock the OpenAI API key for testing
         config.embedding.providers["openai"].api_key = "test-key"
-        memory = LLMemory(
-            connection_string="postgresql://test:test@localhost/test", config=config
-        )
+        memory = LLMemory(connection_string="postgresql://test:test@localhost/test", config=config)
         # Don't initialize to avoid database connection
         return memory
 

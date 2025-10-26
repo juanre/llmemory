@@ -4,13 +4,14 @@ import asyncio
 from datetime import datetime, timedelta
 
 import pytest
+
 from llmemory import (
-    LLMemory,
     DeleteResult,
     DocumentListResult,
     DocumentNotFoundError,
     DocumentType,
     DocumentWithChunks,
+    LLMemory,
     OwnerStatistics,
     SearchResultWithDocuments,
 )
@@ -325,9 +326,7 @@ class TestEnhancedSearchAPI:
                 assert result.score > 0
 
     @pytest.mark.asyncio
-    async def test_search_without_document_metadata(
-        self, memory_library_with_embeddings: LLMemory
-    ):
+    async def test_search_without_document_metadata(self, memory_library_with_embeddings: LLMemory):
         """Test search without document metadata enrichment."""
         memory = memory_library_with_embeddings
 

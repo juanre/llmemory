@@ -3,16 +3,17 @@
 
 """Query routing for RAG systems."""
 
+import logging
 from dataclasses import dataclass
 from enum import Enum
 from typing import List, Optional
-import logging
 
 logger = logging.getLogger(__name__)
 
 
 class RouteType(str, Enum):
     """Query routing decision types."""
+
     RETRIEVAL = "retrieval"  # Answer from documents
     WEB_SEARCH = "web_search"  # Need external info
     UNANSWERABLE = "unanswerable"  # Cannot answer
@@ -22,6 +23,7 @@ class RouteType(str, Enum):
 @dataclass
 class RouteDecision:
     """Query routing decision."""
+
     route_type: RouteType
     confidence: float  # 0-1
     reason: str
@@ -36,10 +38,7 @@ class QueryRouter:
         self.model = model
 
     async def route(
-        self,
-        query: str,
-        document_context: List[str],
-        threshold: float = 0.7
+        self, query: str, document_context: List[str], threshold: float = 0.7
     ) -> RouteDecision:
         """Determine how to handle a query.
 
@@ -84,30 +83,24 @@ Respond with JSON:
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a query classification expert for RAG systems."
+                        "content": "You are a query classification expert for RAG systems.",
                     },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
+                    {"role": "user", "content": prompt},
                 ],
                 response_format={"type": "json_object"},
                 temperature=0.0,
-                timeout=5.0
+                timeout=5.0,
             )
 
             import json
+
             result = json.loads(response.choices[0].message.content)
 
             route_type = RouteType(result["route"].lower())
             confidence = float(result["confidence"])
             reason = result["reason"]
 
-            return RouteDecision(
-                route_type=route_type,
-                confidence=confidence,
-                reason=reason
-            )
+            return RouteDecision(route_type=route_type, confidence=confidence, reason=reason)
 
         except Exception as e:
             logger.error(f"Query routing failed: {e}")
@@ -115,5 +108,5 @@ Respond with JSON:
             return RouteDecision(
                 route_type=RouteType.RETRIEVAL,
                 confidence=0.5,
-                reason=f"Routing failed: {e}, defaulting to retrieval"
+                reason=f"Routing failed: {e}, defaulting to retrieval",
             )

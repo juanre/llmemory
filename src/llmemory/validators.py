@@ -18,9 +18,7 @@ class InputValidator:
     def __init__(self):
         self.config = get_config().validation
 
-    def validate_owner_id(
-        self, owner_id: Optional[str], field_name: str = "owner_id"
-    ) -> str:
+    def validate_owner_id(self, owner_id: Optional[str], field_name: str = "owner_id") -> str:
         """Validate owner_id parameter."""
         if not owner_id:
             raise ValidationError(field_name, "cannot be empty")
@@ -87,9 +85,7 @@ class InputValidator:
 
         return document_name
 
-    def validate_content(
-        self, content: Optional[str], allow_empty: bool = False
-    ) -> str:
+    def validate_content(self, content: Optional[str], allow_empty: bool = False) -> str:
         """Validate document content."""
         if not content and not allow_empty:
             raise ValidationError("content", "cannot be empty")
@@ -105,10 +101,7 @@ class InputValidator:
                     f"{len(content)} characters",
                 )
 
-            if (
-                not allow_empty
-                and len(content.strip()) < self.config.min_content_length
-            ):
+            if not allow_empty and len(content.strip()) < self.config.min_content_length:
                 raise ValidationError(
                     "content",
                     f"must be at least {self.config.min_content_length} characters",
@@ -223,7 +216,7 @@ class InputValidator:
         import json
 
         # Allowed characters in keys: alphanumeric, underscore, hyphen, period
-        key_pattern = re.compile(r'^[a-zA-Z0-9_.-]+$')
+        key_pattern = re.compile(r"^[a-zA-Z0-9_.-]+$")
 
         def check_keys(obj: Any, path: str = ""):
             if isinstance(obj, dict):
@@ -260,9 +253,7 @@ class InputValidator:
             return {}
 
         if not isinstance(metadata, dict):
-            raise ValidationError(
-                "metadata", "must be a dictionary", type(metadata).__name__
-            )
+            raise ValidationError("metadata", "must be a dictionary", type(metadata).__name__)
 
         # Validate keys
         self._validate_metadata_keys(metadata)
@@ -307,23 +298,17 @@ class InputValidator:
             )
 
         if end_date and not isinstance(end_date, datetime):
-            raise ValidationError(
-                "end_date", "must be a datetime object", type(end_date).__name__
-            )
+            raise ValidationError("end_date", "must be a datetime object", type(end_date).__name__)
 
         if start_date and end_date and start_date > end_date:
             raise ValidationError("date_range", "start_date must be before end_date")
 
         return start_date, end_date
 
-    def validate_embedding(
-        self, embedding: Any, expected_dim: Optional[int] = None
-    ) -> List[float]:
+    def validate_embedding(self, embedding: Any, expected_dim: Optional[int] = None) -> List[float]:
         """Validate embedding vector."""
         if not isinstance(embedding, (list, tuple)):
-            raise ValidationError(
-                "embedding", "must be a list or tuple", type(embedding).__name__
-            )
+            raise ValidationError("embedding", "must be a list or tuple", type(embedding).__name__)
 
         # Get expected dimension from default provider if not specified
         if expected_dim is None:
@@ -352,9 +337,7 @@ class InputValidator:
     def validate_batch_size(self, batch_size: Any) -> int:
         """Validate batch size parameter."""
         if not isinstance(batch_size, int):
-            raise ValidationError(
-                "batch_size", "must be an integer", type(batch_size).__name__
-            )
+            raise ValidationError("batch_size", "must be an integer", type(batch_size).__name__)
 
         if batch_size <= 0:
             raise ValidationError("batch_size", "must be positive", batch_size)
@@ -366,9 +349,7 @@ class InputValidator:
         max_batch = default_provider.batch_size if default_provider else 100
 
         if batch_size > max_batch:
-            raise ValidationError(
-                "batch_size", f"cannot exceed {max_batch}", batch_size
-            )
+            raise ValidationError("batch_size", f"cannot exceed {max_batch}", batch_size)
 
         return batch_size
 

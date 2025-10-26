@@ -111,9 +111,7 @@ class HierarchicalChunker:
                     else parent_data["text"]
                 )
 
-                child_content_hash = hashlib.sha256(
-                    child_data["text"].encode()
-                ).hexdigest()
+                child_content_hash = hashlib.sha256(child_data["text"].encode()).hexdigest()
 
                 child_chunk = DocumentChunk(
                     document_id=document_id,
@@ -153,9 +151,7 @@ class HierarchicalChunker:
 
         if len(tokens) <= size:
             # Text fits in a single chunk
-            return [
-                {"text": text, "start": 0, "end": len(text), "token_count": len(tokens)}
-            ]
+            return [{"text": text, "start": 0, "end": len(text), "token_count": len(tokens)}]
 
         i = 0
         start_char = 0  # Track character position efficiently
@@ -391,9 +387,7 @@ class SemanticChunker:
             if header_match:
                 # Save previous section
                 if current_section:
-                    sections.append(
-                        {"level": current_level, "content": "\n".join(current_section)}
-                    )
+                    sections.append({"level": current_level, "content": "\n".join(current_section)})
 
                 # Start new section
                 current_level = len(header_match.group(1))
@@ -403,9 +397,7 @@ class SemanticChunker:
 
         # Add final section
         if current_section:
-            sections.append(
-                {"level": current_level, "content": "\n".join(current_section)}
-            )
+            sections.append({"level": current_level, "content": "\n".join(current_section)})
 
         # Create hierarchical chunks from sections
         parent_chunk = None
@@ -424,11 +416,7 @@ class SemanticChunker:
             )
 
             # Set parent relationship
-            if (
-                level > 1
-                and parent_chunk
-                and parent_chunk.chunk_level > chunk.chunk_level
-            ):
+            if level > 1 and parent_chunk and parent_chunk.chunk_level > chunk.chunk_level:
                 chunk.parent_chunk_id = parent_chunk.chunk_id
             elif level == 1:
                 parent_chunk = chunk
@@ -484,9 +472,7 @@ class SemanticChunker:
 
                 # Start new chunk
                 current_chunk = [line]
-                current_type = (
-                    "function" if "def" in line or "function" in line else "class"
-                )
+                current_type = "function" if "def" in line or "function" in line else "class"
             else:
                 current_chunk.append(line)
 
@@ -785,9 +771,7 @@ class SemanticChunker:
         return chunks
 
 
-def get_chunker(
-    strategy: str = "hierarchical", config: Optional[ChunkingConfig] = None
-):
+def get_chunker(strategy: str = "hierarchical", config: Optional[ChunkingConfig] = None):
     """
     Factory function to get the appropriate chunker.
 

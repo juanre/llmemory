@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import numpy as np
 import pytest
+
 from llmemory.models import DocumentType
 
 

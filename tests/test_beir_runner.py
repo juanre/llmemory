@@ -4,8 +4,8 @@ import pytest
 
 pytest.importorskip("beir")
 
-from llmemory import SearchType
 from bench.beir_runner import evaluate
+from llmemory import SearchType
 
 
 def test_evaluate_with_empty_run():

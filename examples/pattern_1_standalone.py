@@ -16,7 +16,7 @@ import asyncio
 import os
 from datetime import datetime
 
-from llmemory import LLMemory, DocumentType, SearchType
+from llmemory import DocumentType, LLMemory, SearchType
 
 
 async def main():

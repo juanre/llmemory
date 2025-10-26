@@ -14,11 +14,11 @@ import asyncio
 import hashlib
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
-import re
 from uuid import UUID
 
 from pgdbm import AsyncDatabaseManager
@@ -68,18 +68,14 @@ try:
 
     cache_hit_rate = Gauge("llmemory_cache_hit_rate", "Cache hit rate for searches")
 
-    active_searches = Gauge(
-        "llmemory_active_searches", "Number of currently active searches"
-    )
+    active_searches = Gauge("llmemory_active_searches", "Number of currently active searches")
 
     vector_similarity_scores = Summary(
         "llmemory_vector_similarity_scores",
         "Distribution of vector similarity scores",
     )
 
-    text_rank_scores = Summary(
-        "llmemory_text_rank_scores", "Distribution of text rank scores"
-    )
+    text_rank_scores = Summary("llmemory_text_rank_scores", "Distribution of text rank scores")
 
     query_embedding_time = Histogram(
         "llmemory_query_embedding_seconds",
@@ -100,9 +96,7 @@ try:
 except ImportError:
     # Fallback when prometheus_client is not installed
     METRICS_ENABLED = False
-    logger.info(
-        "Prometheus metrics disabled - install with: pip install llmemory[monitoring]"
-    )
+    logger.info("Prometheus metrics disabled - install with: pip install llmemory[monitoring]")
 
 
 @dataclass
@@ -235,9 +229,9 @@ class OptimizedAsyncSearch:
 
             if METRICS_ENABLED:
                 # Record search duration
-                search_duration_seconds.labels(
-                    search_type=query.search_type.value
-                ).observe(time.time() - start_time)
+                search_duration_seconds.labels(search_type=query.search_type.value).observe(
+                    time.time() - start_time
+                )
 
                 # Update cache hit rate gauge
                 cache_hit_rate.set(self.metrics.cache_hit_rate)
@@ -250,9 +244,9 @@ class OptimizedAsyncSearch:
 
             if METRICS_ENABLED:
                 # Record result count
-                search_results_count.labels(
-                    search_type=query.search_type.value
-                ).observe(len(search_results))
+                search_results_count.labels(search_type=query.search_type.value).observe(
+                    len(search_results)
+                )
 
             return search_results
 
@@ -461,9 +455,7 @@ class OptimizedAsyncSearch:
         results = await self._fetch_all(final_query, params, set_hnsw=False)
 
         if METRICS_ENABLED:
-            database_query_duration.labels(query_type="text_search").observe(
-                time.time() - db_start
-            )
+            database_query_duration.labels(query_type="text_search").observe(time.time() - db_start)
 
             # Track text rank scores
             for row in results:
@@ -481,9 +473,7 @@ class OptimizedAsyncSearch:
             for row in results
         ]
 
-    async def _optimized_hybrid_search(
-        self, query: SearchQuery
-    ) -> List[Dict[str, Any]]:
+    async def _optimized_hybrid_search(self, query: SearchQuery) -> List[Dict[str, Any]]:
         """
         Optimized hybrid search with parallel execution.
 
@@ -545,9 +535,7 @@ class OptimizedAsyncSearch:
             rrf_scores[chunk_id] = rrf_scores.get(chunk_id, 0) + text_score
 
         # Get top results efficiently
-        top_chunks = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)[
-            :limit
-        ]
+        top_chunks = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)[:limit]
 
         results = []
         for chunk_id, score in top_chunks:
@@ -567,9 +555,7 @@ class OptimizedAsyncSearch:
         parent_contexts = {}
         if query.include_parent_context:
             chunk_ids = [UUID(r["chunk_id"]) for r in raw_results]
-            parent_contexts = await self._batch_get_parent_contexts(
-                chunk_ids, query.context_window
-            )
+            parent_contexts = await self._batch_get_parent_contexts(chunk_ids, query.context_window)
 
         for result in raw_results:
             chunk_id = UUID(result["chunk_id"])
@@ -591,9 +577,7 @@ class OptimizedAsyncSearch:
                 content=result["content"],
                 metadata=metadata if isinstance(metadata, dict) else {},
                 summary=summary_text,
-                score=result.get(
-                    "similarity", result.get("rrf_score", result.get("rank", 0))
-                ),
+                score=result.get("similarity", result.get("rrf_score", result.get("rank", 0))),
                 similarity=result.get("similarity"),
                 text_rank=result.get("rank"),
                 rrf_score=result.get("rrf_score"),
@@ -655,7 +639,7 @@ class OptimizedAsyncSearch:
                 token_count=row["token_count"],
                 metadata=row["metadata"] or {},
                 created_at=row["created_at"],
-                summary=row.get("summary")
+                summary=row.get("summary"),
             )
 
             if child_id not in result:
@@ -664,7 +648,8 @@ class OptimizedAsyncSearch:
 
         # For chunks without hierarchical parents, get adjacent chunks
         chunks_needing_adjacent = [
-            chunk_id for chunk_id in chunk_ids
+            chunk_id
+            for chunk_id in chunk_ids
             if chunk_id not in result or len(result[chunk_id]) < context_window
         ]
 
@@ -694,9 +679,7 @@ class OptimizedAsyncSearch:
             """
 
             adjacent_rows = await self.db.fetch_all(
-                adjacent_query,
-                chunks_needing_adjacent,
-                context_window
+                adjacent_query, chunks_needing_adjacent, context_window
             )
 
             for row in adjacent_rows:
@@ -712,7 +695,7 @@ class OptimizedAsyncSearch:
                     token_count=row["token_count"],
                     metadata=row["metadata"] or {},
                     created_at=row["created_at"],
-                    summary=row.get("summary")
+                    summary=row.get("summary"),
                 )
 
                 if target_id not in result:

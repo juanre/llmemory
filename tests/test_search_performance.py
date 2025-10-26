@@ -5,6 +5,7 @@ import time
 
 import pytest
 import pytest_asyncio
+
 from llmemory.embeddings import EmbeddingGenerator
 from llmemory.library import LLMemory
 from llmemory.models import DocumentType, SearchType

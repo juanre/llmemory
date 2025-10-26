@@ -1,8 +1,9 @@
 """Unit tests for OptimizedAsyncSearch module."""
 
 import pytest
-from llmemory.search_optimizer import OptimizedAsyncSearch
+
 from llmemory.models import SearchQuery, SearchType
+from llmemory.search_optimizer import OptimizedAsyncSearch
 
 
 @pytest.mark.asyncio
@@ -15,7 +16,7 @@ async def test_search_optimizer_initialization(memory_manager):
         cache_ttl=300,
         max_concurrent_queries=100,
         enable_query_optimization=True,
-        hnsw_ef_search=100
+        hnsw_ef_search=100,
     )
 
     assert optimizer.cache_ttl == 300
@@ -33,7 +34,7 @@ async def test_vector_search_with_hnsw(memory_library_with_embeddings):
         owner_id="test_workspace",
         query_text="machine learning",
         search_type=SearchType.VECTOR,
-        limit=10
+        limit=10,
     )
 
     assert len(results) > 0
@@ -52,7 +53,7 @@ async def test_text_search_with_bm25(memory_library_with_embeddings):
         owner_id="test_workspace",
         query_text="machine learning",
         search_type=SearchType.TEXT,
-        limit=10
+        limit=10,
     )
 
     assert len(results) > 0
@@ -71,7 +72,7 @@ async def test_hybrid_search_rrf_fusion(memory_library_with_embeddings):
         query_text="machine learning",
         search_type=SearchType.HYBRID,
         alpha=0.5,
-        limit=10
+        limit=10,
     )
 
     assert len(results) > 0

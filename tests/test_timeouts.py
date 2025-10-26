@@ -38,6 +38,7 @@ async def test_query_expansion_timeout():
 @pytest.mark.asyncio
 async def test_reranker_timeout():
     """Test reranking times out slow callbacks."""
+
     async def slow_reranker(query: str, results):
         await asyncio.sleep(10)  # Exceeds timeout
         return [1.0] * len(results)

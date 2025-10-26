@@ -4,8 +4,9 @@ from datetime import datetime
 from uuid import uuid4
 
 import pytest
-from llmemory.config import LLMemoryConfig
+
 from llmemory.config import DatabaseConfig as MemoryDbConfig
+from llmemory.config import LLMemoryConfig
 from llmemory.db import MemoryDatabase
 from llmemory.library import LLMemory
 from llmemory.manager import MemoryManager

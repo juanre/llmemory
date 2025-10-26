@@ -6,14 +6,17 @@ SOTA RAG performance benchmarks."""
 import asyncio
 import os
 import time
+
 from dotenv import load_dotenv
-from llmemory import LLMemory, SearchType, LLMemoryConfig, DocumentType, set_config
+
+from llmemory import DocumentType, LLMemory, LLMemoryConfig, SearchType, set_config
 
 # Load environment variables for OpenAI API key
 load_dotenv()
 
 # Use test database
 TEST_DB_CONNECTION = "postgresql://localhost/llmemory_bench_test"
+
 
 async def benchmark_hybrid_search():
     """Benchmark hybrid search latency."""
@@ -27,7 +30,7 @@ async def benchmark_hybrid_search():
             id_at_origin=f"doc-{i}",
             document_name=f"doc{i}.txt",
             document_type=DocumentType.TEXT,
-            content=f"Document {i} content about machine learning and AI. " * 50
+            content=f"Document {i} content about machine learning and AI. " * 50,
         )
 
     # Benchmark searches
@@ -47,7 +50,7 @@ async def benchmark_hybrid_search():
                 query_text=query,
                 search_type=SearchType.HYBRID,
                 alpha=0.5,
-                limit=10
+                limit=10,
             )
             elapsed = (time.time() - start) * 1000
             latencies.append(elapsed)
@@ -65,9 +68,7 @@ async def benchmark_hybrid_search():
     print(f"  Target: <100ms p95")
 
     # Cleanup test data
-    await memory._manager.db.db.execute(
-        "DELETE FROM documents WHERE owner_id = $1", "bench"
-    )
+    await memory._manager.db.db.execute("DELETE FROM documents WHERE owner_id = $1", "bench")
 
     await memory.close()
 
@@ -85,10 +86,7 @@ async def benchmark_with_reranking():
     # Without reranking
     start = time.time()
     results_no_rerank = await memory.search(
-        owner_id="bench",
-        query_text=query,
-        rerank=False,
-        limit=10
+        owner_id="bench", query_text=query, rerank=False, limit=10
     )
     no_rerank_time = (time.time() - start) * 1000
 
@@ -100,7 +98,7 @@ async def benchmark_with_reranking():
         rerank=True,
         rerank_top_k=50,
         rerank_return_k=10,
-        limit=10
+        limit=10,
     )
     rerank_time = (time.time() - start) * 1000
 
@@ -148,6 +146,10 @@ if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("BENCHMARK SUMMARY")
     print("=" * 60)
-    print(f"Hybrid Search P95: {hybrid_results['p95']:.2f}ms (Target: <100ms) - {'✓ PASS' if hybrid_results['passed'] else '✗ FAIL'}")
-    print(f"Reranking Overhead: {rerank_results['overhead']:.2f}ms (Target: <100ms) - {'✓ PASS' if rerank_results['passed'] else '✗ FAIL'}")
+    print(
+        f"Hybrid Search P95: {hybrid_results['p95']:.2f}ms (Target: <100ms) - {'✓ PASS' if hybrid_results['passed'] else '✗ FAIL'}"
+    )
+    print(
+        f"Reranking Overhead: {rerank_results['overhead']:.2f}ms (Target: <100ms) - {'✓ PASS' if rerank_results['passed'] else '✗ FAIL'}"
+    )
     print("=" * 60)

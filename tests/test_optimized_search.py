@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timedelta
 
 import pytest
+
 from llmemory.models import DocumentType, SearchQuery, SearchType
 
 

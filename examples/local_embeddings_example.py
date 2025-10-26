@@ -8,8 +8,9 @@ import asyncio
 import os
 
 from dotenv import load_dotenv
+
 from llmemory import LLMemory
-from llmemory.config import LLMemoryConfig, EmbeddingConfig, EmbeddingProviderConfig
+from llmemory.config import EmbeddingConfig, EmbeddingProviderConfig, LLMemoryConfig
 from llmemory.models import DocumentType, SearchType
 
 # Load environment variables

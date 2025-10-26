@@ -1,12 +1,11 @@
 from typing import List
+from uuid import uuid4
 
 import pytest
 
 from llmemory.config import SearchConfig
 from llmemory.models import SearchResult
-from llmemory.reranker import (CrossEncoderReranker, OpenAIResponsesReranker,
-                               RerankerService)
-from uuid import uuid4
+from llmemory.reranker import CrossEncoderReranker, OpenAIResponsesReranker, RerankerService
 
 
 @pytest.mark.asyncio
@@ -74,9 +73,7 @@ async def test_openai_reranker(monkeypatch):
                 type(
                     "Item",
                     (),
-                    {
-                        "content": [type("Piece", (), {"text": '{"scores":[0.7,0.2]}'})]
-                    },
+                    {"content": [type("Piece", (), {"text": '{"scores":[0.7,0.2]}'})]},
                 )
             ]
 

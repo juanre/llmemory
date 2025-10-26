@@ -95,15 +95,9 @@ class MultilingualProcessor:
         Language.RUSSIAN: LanguageConfig(
             stemmer="russian", stop_words="russian", text_search_config="russian"
         ),
-        Language.CHINESE: LanguageConfig(
-            tokenizer="jieba", text_search_config="simple"
-        ),
-        Language.JAPANESE: LanguageConfig(
-            tokenizer="mecab", text_search_config="simple"
-        ),
-        Language.KOREAN: LanguageConfig(
-            tokenizer="konlpy", text_search_config="simple"
-        ),
+        Language.CHINESE: LanguageConfig(tokenizer="jieba", text_search_config="simple"),
+        Language.JAPANESE: LanguageConfig(tokenizer="mecab", text_search_config="simple"),
+        Language.KOREAN: LanguageConfig(tokenizer="konlpy", text_search_config="simple"),
         Language.ARABIC: LanguageConfig(direction="rtl", text_search_config="arabic"),
         Language.HEBREW: LanguageConfig(direction="rtl", text_search_config="simple"),
         Language.DUTCH: LanguageConfig(
@@ -116,9 +110,7 @@ class MultilingualProcessor:
         """Initialize the multilingual processor."""
         self.configs = self.LANGUAGE_CONFIGS
 
-    def detect_language(
-        self, text: str, min_confidence: float = 0.8
-    ) -> Tuple[str, float]:
+    def detect_language(self, text: str, min_confidence: float = 0.8) -> Tuple[str, float]:
         """
         Detect the primary language of a text.
 

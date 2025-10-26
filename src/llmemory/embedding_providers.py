@@ -167,16 +167,10 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
                 except openai.RateLimitError as e:
                     retry_count += 1
                     if retry_count >= self.config.max_retries:
-                        logger.error(
-                            f"Rate limit exceeded after {self.config.max_retries} retries"
-                        )
-                        raise RateLimitError(
-                            f"Rate limit exceeded: {str(e)}", retry_after=60.0
-                        )
+                        logger.error(f"Rate limit exceeded after {self.config.max_retries} retries")
+                        raise RateLimitError(f"Rate limit exceeded: {str(e)}", retry_after=60.0)
 
-                    wait_time = min(
-                        60 * retry_count, 300
-                    )  # Exponential backoff, max 5 min
+                    wait_time = min(60 * retry_count, 300)  # Exponential backoff, max 5 min
                     logger.warning(
                         f"Rate limit error (retry {retry_count}/{self.config.max_retries}), "
                         f"waiting {wait_time}s"

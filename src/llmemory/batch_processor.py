@@ -58,9 +58,7 @@ class RateLimiter:
                 tokens_needed = tokens - self._tokens
                 wait_time = tokens_needed / (self.max_rpm / self.window_size)
 
-                logger.debug(
-                    f"Rate limit: waiting {wait_time:.2f}s for {tokens} tokens"
-                )
+                logger.debug(f"Rate limit: waiting {wait_time:.2f}s for {tokens} tokens")
                 await asyncio.sleep(wait_time)
 
 
@@ -383,9 +381,7 @@ class BackgroundEmbeddingProcessor:
         while self._running:
             try:
                 # Get pending jobs
-                jobs = await get_pending_jobs(
-                    limit=self.batch_processor.batch_size * 10
-                )
+                jobs = await get_pending_jobs(limit=self.batch_processor.batch_size * 10)
 
                 if jobs:
                     logger.info(f"Processing {len(jobs)} pending embedding jobs")

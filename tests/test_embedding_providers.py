@@ -4,8 +4,9 @@ import os
 
 import pytest
 import pytest_asyncio
+
 from llmemory import LLMemory
-from llmemory.config import LLMemoryConfig, EmbeddingConfig, EmbeddingProviderConfig
+from llmemory.config import EmbeddingConfig, EmbeddingProviderConfig, LLMemoryConfig
 from llmemory.embedding_providers import EmbeddingProviderFactory
 from llmemory.exceptions import ConfigurationError
 from llmemory.models import DocumentType, SearchType

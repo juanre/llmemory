@@ -61,9 +61,7 @@ class Document:
 
     document_id: UUID = field(default_factory=uuid4)
     owner_id: str = ""  # Owner identifier for filtering (e.g., workspace_id)
-    id_at_origin: str = (
-        ""  # User ID, thread ID, or other origin identifier within owner
-    )
+    id_at_origin: str = ""  # User ID, thread ID, or other origin identifier within owner
     document_type: DocumentType = DocumentType.UNKNOWN
     document_name: str = ""
     document_date: Optional[datetime] = None
@@ -109,9 +107,7 @@ class DocumentChunk:
         return {
             "chunk_id": str(self.chunk_id),
             "document_id": str(self.document_id),
-            "parent_chunk_id": (
-                str(self.parent_chunk_id) if self.parent_chunk_id else None
-            ),
+            "parent_chunk_id": (str(self.parent_chunk_id) if self.parent_chunk_id else None),
             "chunk_index": self.chunk_index,
             "chunk_level": self.chunk_level,
             "content": self.content,

@@ -1,9 +1,9 @@
 """Tests for query expansion and multi-query search."""
 
 import json
+from unittest.mock import AsyncMock, Mock
 
 import pytest
-from unittest.mock import AsyncMock, Mock
 
 from llmemory.config import LLMemoryConfig, SearchConfig
 from llmemory.library import LLMemory
@@ -221,10 +221,7 @@ async def test_llm_query_expansion_callback_is_invoked(memory_db):
         async def mock_llm_callback(query: str, limit: int):
             nonlocal call_count
             call_count += 1
-            return [
-                "semantic variant one",
-                "semantic variant two"
-            ]
+            return ["semantic variant one", "semantic variant two"]
 
         # Wire the callback (this will fail - method doesn't exist yet)
         memory._query_expander.llm_callback = mock_llm_callback
@@ -235,7 +232,7 @@ async def test_llm_query_expansion_callback_is_invoked(memory_db):
             search_type=SearchType.TEXT,
             query_expansion=True,
             max_query_variants=3,
-            limit=5
+            limit=5,
         )
 
         # Verify callback was invoked
@@ -256,17 +253,16 @@ async def test_llm_expansion_auto_wired_from_config(memory_db):
     config.search.query_expansion_model = "gpt-4o-mini"
 
     memory = LLMemory(
-        connection_string=memory_db.db.config.get_dsn(),
-        openai_api_key="sk-test-key",
-        config=config
+        connection_string=memory_db.db.config.get_dsn(), openai_api_key="sk-test-key", config=config
     )
     await memory.initialize()
 
     try:
         # Verify query expander has LLM callback wired
         assert memory._query_expander is not None
-        assert memory._query_expander.llm_callback is not None, \
-            "LLM callback should be auto-wired when query_expansion_model configured"
+        assert (
+            memory._query_expander.llm_callback is not None
+        ), "LLM callback should be auto-wired when query_expansion_model configured"
 
     finally:
         await memory.close()
@@ -290,8 +286,9 @@ async def test_query_expansion_heuristic_variants():
     assert any("OR" in v for v in variants), "Should include OR variant"
 
     # Should include quoted variant
-    assert any(v.startswith('"') and v.endswith('"') for v in variants), \
-        "Should include quoted variant"
+    assert any(
+        v.startswith('"') and v.endswith('"') for v in variants
+    ), "Should include quoted variant"
 
     # Variants should not include original
     assert "how to improve customer satisfaction" not in [v.lower() for v in variants]
@@ -305,11 +302,7 @@ async def test_query_expansion_with_llm_callback():
 
     # Create mock callback
     async def mock_llm(query: str, limit: int):
-        return [
-            "semantic variant one",
-            "semantic variant two",
-            "semantic variant three"
-        ]
+        return ["semantic variant one", "semantic variant two", "semantic variant three"]
 
     service = QueryExpansionService(config, llm_callback=mock_llm)
 

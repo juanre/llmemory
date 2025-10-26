@@ -13,16 +13,15 @@ Key characteristics:
 
 import asyncio
 import os
-from typing import Dict, Any
 from datetime import datetime
-
-from pgdbm import AsyncDatabaseManager, DatabaseConfig
-from llmemory import LLMemory, DocumentType, SearchType
+from typing import Any, Dict
 
 # Import the library from Pattern 2 example
 # In a real app, this would be: from document_analyzer import DocumentAnalyzer
 from pattern_2_library import DocumentAnalyzer
+from pgdbm import AsyncDatabaseManager, DatabaseConfig
 
+from llmemory import DocumentType, LLMemory, SearchType
 
 # === MOCK OTHER SERVICES ===
 

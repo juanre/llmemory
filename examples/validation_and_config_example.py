@@ -12,12 +12,13 @@ import os
 from datetime import datetime
 
 from dotenv import load_dotenv
+
 from llmemory import (
-    LLMemory,
-    LLMemoryConfig,
     ConfigurationError,
     DocumentType,
     EmbeddingError,
+    LLMemory,
+    LLMemoryConfig,
     SearchType,
     ValidationError,
 )

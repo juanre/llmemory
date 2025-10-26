@@ -146,7 +146,7 @@ class QueryExpansionService:
 
         # Include a quoted phrase variant when multi-word query
         if len(tokens) > 1:
-            variants.append(f"\"{normalized}\"")
+            variants.append(f'"{normalized}"')
 
         return variants
 

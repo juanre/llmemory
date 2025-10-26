@@ -3,7 +3,8 @@
 import asyncio
 
 import pytest
-from llmemory import LLMemory, DocumentNotFoundError, DocumentType, SearchType, ValidationError
+
+from llmemory import DocumentNotFoundError, DocumentType, LLMemory, SearchType, ValidationError
 
 
 class TestAPIIntegration:

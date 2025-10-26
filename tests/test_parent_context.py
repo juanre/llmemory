@@ -1,5 +1,7 @@
 import pytest
+
 from llmemory import DocumentType
+
 
 @pytest.mark.asyncio
 async def test_parent_context_uses_hierarchy(memory_library):
@@ -22,13 +24,14 @@ async def test_parent_context_uses_hierarchy(memory_library):
         document_type=DocumentType.TEXT,
         content=content,
         chunking_strategy="hierarchical",
-        generate_embeddings=False  # Not testing embeddings
+        generate_embeddings=False,  # Not testing embeddings
     )
 
     # Search for child chunk content using TEXT search
     # (vector search requires embeddings which we disabled)
-    from llmemory.models import SearchType
     from uuid import UUID
+
+    from llmemory.models import SearchType
 
     results = await memory.search(
         owner_id="test",
@@ -36,7 +39,7 @@ async def test_parent_context_uses_hierarchy(memory_library):
         search_type=SearchType.TEXT,
         include_parent_context=True,
         context_window=1,
-        limit=10  # Get multiple results to find a child chunk
+        limit=10,  # Get multiple results to find a child chunk
     )
 
     assert len(results) > 0, "Should find at least one result"
@@ -51,10 +54,7 @@ async def test_parent_context_uses_hierarchy(memory_library):
             FROM {{tables.document_chunks}}
             WHERE chunk_id = $1
         """
-        chunk_data = await memory._manager.db.db.fetch_one(
-            check_query,
-            UUID(str(result.chunk_id))
-        )
+        chunk_data = await memory._manager.db.db.fetch_one(check_query, UUID(str(result.chunk_id)))
         if chunk_data and chunk_data["parent_chunk_id"]:
             search_result = result
             expected_parent_id = chunk_data["parent_chunk_id"]
@@ -75,13 +75,15 @@ async def test_parent_context_uses_hierarchy(memory_library):
     assert parent.chunk_level is not None, "Parent should have chunk_level"
 
     # Parent should contain parent content
-    assert "parent section with important context" in parent.content.lower(), \
-        f"Parent should contain hierarchical parent content, got: {parent.content[:200]}"
+    assert (
+        "parent section with important context" in parent.content.lower()
+    ), f"Parent should contain hierarchical parent content, got: {parent.content[:200]}"
 
     # Most importantly: verify the returned chunk's parent_chunk_id matches our parent
     # This proves we're using hierarchical relationships, not just adjacency
     # asyncpg returns UUID objects, no need to convert
     if isinstance(expected_parent_id, str):
         expected_parent_id = UUID(expected_parent_id)
-    assert parent.chunk_id == expected_parent_id, \
-        f"Parent chunk should be the one referenced by parent_chunk_id ({expected_parent_id}), not just adjacent ({parent.chunk_id})"
+    assert (
+        parent.chunk_id == expected_parent_id
+    ), f"Parent chunk should be the one referenced by parent_chunk_id ({expected_parent_id}), not just adjacent ({parent.chunk_id})"

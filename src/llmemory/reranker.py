@@ -61,9 +61,7 @@ class RerankerService:
         if self.score_callback:
             try:
                 rerank_scores = list(
-                    await asyncio.wait_for(
-                        self.score_callback(query_text, candidates), timeout=8.0
-                    )
+                    await asyncio.wait_for(self.score_callback(query_text, candidates), timeout=8.0)
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Custom reranker callback failed: %s", exc)
@@ -124,16 +122,12 @@ class RerankerService:
         if result.metadata:
             metadata_text = " ".join(f"{k} {v}" for k, v in result.metadata.items())
             metadata_tokens = self._tokenize(metadata_text)
-            token_overlap += sum(
-                1 for token in query_tokens if token in metadata_tokens
-            )
+            token_overlap += sum(1 for token in query_tokens if token in metadata_tokens)
 
         length_penalty = math.log(len(content_tokens) + 1)
         return self.keyword_boost * token_overlap / length_penalty
 
-    def _lexical_scores(
-        self, query_text: str, results: Sequence[SearchResult]
-    ) -> List[float]:
+    def _lexical_scores(self, query_text: str, results: Sequence[SearchResult]) -> List[float]:
         return [self._lexical_score(query_text, result) for result in results]
 
     @staticmethod
@@ -163,16 +157,12 @@ class CrossEncoderReranker:
         if not hasattr(self, "_model"):
             self._model = _SentenceCrossEncoder(model_name)
 
-    async def score(
-        self, query_text: str, results: Sequence[SearchResult]
-    ) -> Sequence[float]:
+    async def score(self, query_text: str, results: Sequence[SearchResult]) -> Sequence[float]:
         if not results:
             return []
 
         loop = asyncio.get_running_loop()
-        pairs = [
-            (query_text, (res.summary or res.content or "")) for res in results
-        ]
+        pairs = [(query_text, (res.summary or res.content or "")) for res in results]
         scores = await loop.run_in_executor(None, self._predict_sync, pairs)
         return scores
 
@@ -194,18 +184,14 @@ class OpenAIResponsesReranker:
         api_key: Optional[str] = None,
     ) -> None:
         if AsyncOpenAI is None:
-            raise ImportError(
-                "openai>=1.0.0 is required for provider='openai'."
-            )
+            raise ImportError("openai>=1.0.0 is required for provider='openai'.")
 
         self.model = model
         self.max_candidates = max_candidates
         self.temperature = temperature
         self._client = AsyncOpenAI(api_key=api_key)
 
-    async def score(
-        self, query_text: str, results: Sequence[SearchResult]
-    ) -> Sequence[float]:
+    async def score(self, query_text: str, results: Sequence[SearchResult]) -> Sequence[float]:
         if not results:
             return []
 
@@ -257,9 +243,7 @@ class OpenAIResponsesReranker:
 
         return scores
 
-    def _build_prompt(
-        self, query_text: str, results: Sequence[SearchResult]
-    ) -> str:
+    def _build_prompt(self, query_text: str, results: Sequence[SearchResult]) -> str:
         lines = [f"Query: {query_text}", "", "Passages:"]
         for idx, res in enumerate(results, start=1):
             snippet = res.summary or res.content

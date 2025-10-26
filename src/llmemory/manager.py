@@ -17,8 +17,16 @@ from pgdbm import AsyncDatabaseManager
 from .chunking import get_chunker
 from .db import MemoryDatabase, create_memory_db_manager
 from .language_processing import detect_and_process_language
-from .models import (ChunkingConfig, Document, DocumentChunk, DocumentType,
-                     EmbeddingJob, EmbeddingStatus, SearchQuery, SearchResult)
+from .models import (
+    ChunkingConfig,
+    Document,
+    DocumentChunk,
+    DocumentType,
+    EmbeddingJob,
+    EmbeddingStatus,
+    SearchQuery,
+    SearchResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -62,9 +70,7 @@ class MemoryManager:
         self._initialized = True
 
     @classmethod
-    async def create(
-        cls, connection_string: Optional[str] = None, **kwargs
-    ) -> "MemoryManager":
+    async def create(cls, connection_string: Optional[str] = None, **kwargs) -> "MemoryManager":
         """
         Create and initialize a new MemoryManager instance.
 
@@ -242,13 +248,9 @@ class MemoryManager:
             chunker = get_chunker("semantic", chunking_config)
 
             if document_type == DocumentType.EMAIL:
-                chunks = chunker.chunk_email(
-                    text=content, document_id=str(doc.document_id)
-                )
+                chunks = chunker.chunk_email(text=content, document_id=str(doc.document_id))
             else:  # DocumentType.CHAT
-                chunks = chunker.chunk_chat(
-                    text=content, document_id=str(doc.document_id)
-                )
+                chunks = chunker.chunk_chat(text=content, document_id=str(doc.document_id))
 
             # Add base metadata to all chunks
             for chunk in chunks:
@@ -282,9 +284,7 @@ class MemoryManager:
                     parent_id = stored_parent[0].chunk_id
 
                     # Store child chunks
-                    child_chunks = [
-                        c for c in chunks if c.parent_chunk_id == parent.chunk_id
-                    ]
+                    child_chunks = [c for c in chunks if c.parent_chunk_id == parent.chunk_id]
                     for child in child_chunks:
                         # Update parent reference to stored parent
                         child.parent_chunk_id = parent_id
@@ -294,9 +294,7 @@ class MemoryManager:
                         if stored_child:
                             stored_chunks.extend(stored_child)
 
-        logger.info(
-            f"Processed document {doc.document_id} into {len(stored_chunks)} chunks"
-        )
+        logger.info(f"Processed document {doc.document_id} into {len(stored_chunks)} chunks")
         return doc, stored_chunks
 
     async def add_chunks(
@@ -496,9 +494,7 @@ class MemoryManager:
             )
 
             chunk.created_at = result["created_at"]
-            logger.debug(
-                f"Added chunk {chunk.chunk_id} with {chunk.token_count} tokens"
-            )
+            logger.debug(f"Added chunk {chunk.chunk_id} with {chunk.token_count} tokens")
 
         return chunk
 
@@ -699,9 +695,7 @@ class MemoryManager:
                 content=result["content"],
                 metadata=metadata,
                 summary=summary_text,
-                score=result.get(
-                    "similarity", result.get("rrf_score", result.get("rank", 0))
-                ),
+                score=result.get("similarity", result.get("rrf_score", result.get("rank", 0))),
                 similarity=result.get("similarity"),
                 text_rank=result.get("rank"),
                 rrf_score=result.get("rrf_score"),
@@ -725,9 +719,7 @@ class MemoryManager:
             "rerank_requested": query.rerank,
             "rerank_applied": False,
             "timestamp": datetime.utcnow().isoformat() + "Z",
-            "query_variants": query.query_variants
-            if query.query_variants
-            else [query.query_text],
+            "query_variants": query.query_variants if query.query_variants else [query.query_text],
         }
 
         if not disable_logging:
@@ -792,9 +784,7 @@ class MemoryManager:
 
         return results
 
-    async def _get_parent_context(
-        self, chunk_id: UUID, context_window: int
-    ) -> List[DocumentChunk]:
+    async def _get_parent_context(self, chunk_id: UUID, context_window: int) -> List[DocumentChunk]:
         """Get parent context for a chunk."""
         # Use template-based schema qualification for the function
         query = self.db.db_manager.prepare_query(
@@ -803,9 +793,7 @@ class MemoryManager:
             """
         )
 
-        results = await self.db.db_manager.fetch_all(
-            query, str(chunk_id), context_window
-        )
+        results = await self.db.db_manager.fetch_all(query, str(chunk_id), context_window)
 
         chunks = []
         for row in results:
@@ -901,9 +889,11 @@ class MemoryManager:
                 query.id_at_origin or "unknown",
                 query.query_text,
                 provider_id,
-                query.search_type.value
-                if hasattr(query.search_type, "value")
-                else str(query.search_type),
+                (
+                    query.search_type.value
+                    if hasattr(query.search_type, "value")
+                    else str(query.search_type)
+                ),
                 json.dumps(query.metadata_filter) if query.metadata_filter else None,
                 len(results),
                 json.dumps(log_payload),
@@ -926,9 +916,7 @@ class MemoryManager:
         """
         )
 
-        results = await self.db.db_manager.fetch_all(
-            query, EmbeddingStatus.PENDING.value, limit
-        )
+        results = await self.db.db_manager.fetch_all(query, EmbeddingStatus.PENDING.value, limit)
 
         jobs = []
         for row in results:
@@ -1014,9 +1002,7 @@ class MemoryManager:
             chunk = DocumentChunk(
                 chunk_id=UUID(row["chunk_id"]),
                 document_id=UUID(row["document_id"]),
-                parent_chunk_id=(
-                    UUID(row["parent_chunk_id"]) if row["parent_chunk_id"] else None
-                ),
+                parent_chunk_id=(UUID(row["parent_chunk_id"]) if row["parent_chunk_id"] else None),
                 chunk_index=row["chunk_index"],
                 chunk_level=row["chunk_level"],
                 content=row["content"],

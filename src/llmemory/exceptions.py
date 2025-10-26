@@ -113,8 +113,6 @@ class DocumentNotFoundError(ResourceNotFoundError):
 class PermissionError(LLMemoryError):
     """Raised when user doesn't have permission to access a resource."""
 
-    def __init__(
-        self, message: str, resource: Optional[str] = None, action: Optional[str] = None
-    ):
+    def __init__(self, message: str, resource: Optional[str] = None, action: Optional[str] = None):
         details = {"resource": resource, "action": action}
         super().__init__(message, details)

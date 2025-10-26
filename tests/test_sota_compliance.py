@@ -2,8 +2,10 @@
 # ABOUTME: Tests hybrid search, query expansion, reranking, query routing, and contextual retrieval capabilities.
 
 import os
+
 import pytest
-from llmemory import LLMemory, SearchType, LLMemoryConfig, DocumentType
+
+from llmemory import DocumentType, LLMemory, LLMemoryConfig, SearchType
 
 
 @pytest.mark.integration
@@ -13,8 +15,7 @@ async def test_sota_hybrid_search(test_db_factory):
     db_manager = await test_db_factory.create_db(suffix="hybrid", schema="llmemory")
 
     memory = LLMemory(
-        connection_string=db_manager.config.get_dsn(),
-        openai_api_key=os.getenv("OPENAI_API_KEY")
+        connection_string=db_manager.config.get_dsn(), openai_api_key=os.getenv("OPENAI_API_KEY")
     )
     await memory.initialize()
 
@@ -24,7 +25,7 @@ async def test_sota_hybrid_search(test_db_factory):
         id_at_origin="test",
         document_name="ml.txt",
         document_type=DocumentType.TEXT,
-        content="Machine learning uses neural networks for pattern recognition."
+        content="Machine learning uses neural networks for pattern recognition.",
     )
 
     # Hybrid search should work
@@ -33,7 +34,7 @@ async def test_sota_hybrid_search(test_db_factory):
         query_text="deep learning neural networks",
         search_type=SearchType.HYBRID,
         alpha=0.5,
-        limit=5
+        limit=5,
     )
 
     assert len(results) > 0
@@ -60,7 +61,7 @@ async def test_sota_query_expansion_llm(test_db_factory):
     memory = LLMemory(
         connection_string=db_manager.config.get_dsn(),
         openai_api_key=os.getenv("OPENAI_API_KEY"),
-        config=config
+        config=config,
     )
     await memory.initialize()
 
@@ -69,15 +70,11 @@ async def test_sota_query_expansion_llm(test_db_factory):
         id_at_origin="test",
         document_name="test.txt",
         document_type=DocumentType.TEXT,
-        content="Artificial intelligence and machine learning."
+        content="Artificial intelligence and machine learning.",
     )
 
     results = await memory.search(
-        owner_id="test",
-        query_text="AI",
-        query_expansion=True,
-        max_query_variants=3,
-        limit=5
+        owner_id="test", query_text="AI", query_expansion=True, max_query_variants=3, limit=5
     )
 
     # Should work (LLM generates semantic variants)
@@ -93,8 +90,7 @@ async def test_sota_reranking(test_db_factory):
     db_manager = await test_db_factory.create_db(suffix="rerank", schema="llmemory")
 
     memory = LLMemory(
-        connection_string=db_manager.config.get_dsn(),
-        openai_api_key=os.getenv("OPENAI_API_KEY")
+        connection_string=db_manager.config.get_dsn(), openai_api_key=os.getenv("OPENAI_API_KEY")
     )
     await memory.initialize()
 
@@ -103,7 +99,7 @@ async def test_sota_reranking(test_db_factory):
         id_at_origin="test",
         document_name="test.txt",
         document_type=DocumentType.TEXT,
-        content="Machine learning is a subset of artificial intelligence."
+        content="Machine learning is a subset of artificial intelligence.",
     )
 
     # Search with reranking
@@ -114,13 +110,14 @@ async def test_sota_reranking(test_db_factory):
         rerank=True,
         rerank_top_k=20,
         rerank_return_k=5,
-        limit=5
+        limit=5,
     )
 
     # Should have rerank scores
     if len(results) > 0:
-        assert all(r.rerank_score is not None for r in results), \
-            "All results should have rerank scores when rerank=True"
+        assert all(
+            r.rerank_score is not None for r in results
+        ), "All results should have rerank scores when rerank=True"
 
     await memory.close()
 
@@ -135,8 +132,7 @@ async def test_sota_query_routing(test_db_factory):
     db_manager = await test_db_factory.create_db(suffix="routing", schema="llmemory")
 
     memory = LLMemory(
-        connection_string=db_manager.config.get_dsn(),
-        openai_api_key=os.getenv("OPENAI_API_KEY")
+        connection_string=db_manager.config.get_dsn(), openai_api_key=os.getenv("OPENAI_API_KEY")
     )
     await memory.initialize()
 
@@ -146,14 +142,12 @@ async def test_sota_query_routing(test_db_factory):
         id_at_origin="test",
         document_name="kb.txt",
         document_type=DocumentType.TEXT,
-        content="Our product supports password reset via email."
+        content="Our product supports password reset via email.",
     )
 
     # Answerable query
     result = await memory.search_with_routing(
-        owner_id="test",
-        query_text="How do I reset my password?",
-        enable_routing=True
+        owner_id="test", query_text="How do I reset my password?", enable_routing=True
     )
 
     assert result["route"] == "retrieval"
@@ -161,9 +155,7 @@ async def test_sota_query_routing(test_db_factory):
 
     # Unanswerable query
     result = await memory.search_with_routing(
-        owner_id="test",
-        query_text="What's the current weather?",
-        enable_routing=True
+        owner_id="test", query_text="What's the current weather?", enable_routing=True
     )
 
     assert result["route"] in ["web_search", "unanswerable"]
@@ -183,7 +175,7 @@ async def test_sota_contextual_retrieval(test_db_factory):
     memory = LLMemory(
         connection_string=db_manager.config.get_dsn(),
         openai_api_key=os.getenv("OPENAI_API_KEY"),
-        config=config
+        config=config,
     )
     await memory.initialize()
 
@@ -192,7 +184,7 @@ async def test_sota_contextual_retrieval(test_db_factory):
         id_at_origin="test",
         document_name="Q3 Financial Report",
         document_type=DocumentType.REPORT,
-        content="Revenue increased 15% QoQ in the technology sector."
+        content="Revenue increased 15% QoQ in the technology sector.",
     )
 
     # Chunks should be marked as contextualized

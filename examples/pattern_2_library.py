@@ -14,12 +14,12 @@ Key characteristics:
 
 import asyncio
 import os
-from typing import Optional, List, Dict, Any
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from llmemory import LLMemory, DocumentType, SearchType
 from pgdbm import AsyncDatabaseManager
 
+from llmemory import DocumentType, LLMemory, SearchType
 
 # === THE LIBRARY CODE ===
 

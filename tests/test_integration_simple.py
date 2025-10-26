@@ -1,6 +1,7 @@
 """Simple integration test to verify the setup works."""
 
 import pytest
+
 from llmemory import DocumentType
 from llmemory.models import SearchType
 

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 import pytest
+
 from llmemory.chunking import HierarchicalChunker
 from llmemory.models import ChunkingConfig, DocumentType
 

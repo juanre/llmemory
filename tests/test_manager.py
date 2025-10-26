@@ -3,6 +3,7 @@
 from datetime import datetime
 
 import pytest
+
 from llmemory.manager import MemoryManager
 from llmemory.models import DocumentType, SearchQuery, SearchType
 
