@@ -78,6 +78,10 @@ class ChunkingConfig:
     min_chunk_size: int = 50
     max_chunk_size: int = 2000
 
+    # Contextual retrieval
+    enable_contextual_retrieval: bool = False
+    context_template: str = "Document: {document_name}\nType: {document_type}\n\n{content}"
+
 
 @dataclass
 class SearchConfig:

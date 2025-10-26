@@ -255,7 +255,7 @@ class LLMemory:
         embeddings_created = 0
         # Generate embeddings if requested
         if generate_embeddings and chunks:
-            embeddings_created = await self._generate_embeddings_for_chunks(chunks)
+            embeddings_created = await self._generate_embeddings_for_chunks(chunks, doc)
 
         processing_time_ms = (time.time() - start_time) * 1000
 
@@ -1530,14 +1530,57 @@ Alternative queries:"""
         generator = await self._get_embedding_generator()
         return await generator.generate_embedding(query_text)
 
-    async def _generate_embeddings_for_chunks(self, chunks: List[DocumentChunk]) -> int:
+    def _contextualize_chunk(self, chunk: DocumentChunk, document: Document) -> Tuple[str, bool]:
+        """Prepend document context to chunk for embedding.
+
+        Returns tuple of (text_for_embedding, was_contextualized).
+        Preserves original chunk.content for display.
+        """
+        if not self.config.chunking.enable_contextual_retrieval:
+            return chunk.content, False
+
+        # Format context template
+        contextualized_text = self.config.chunking.context_template.format(
+            document_name=document.document_name,
+            document_type=document.document_type.value,
+            content=chunk.content
+        )
+
+        return contextualized_text, True
+
+    async def _generate_embeddings_for_chunks(
+        self,
+        chunks: List[DocumentChunk],
+        document: Optional[Document] = None
+    ) -> int:
         """Generate embeddings for a list of chunks. Returns count of successful embeddings."""
         generator = await self._get_embedding_generator()
         successful_count = 0
 
         for chunk in chunks:
             try:
-                embedding = await generator.generate_embedding(chunk.content)
+                # Contextualize chunk if document is provided and feature is enabled
+                text_for_embedding = chunk.content
+                contextualized = False
+
+                if document:
+                    text_for_embedding, contextualized = self._contextualize_chunk(chunk, document)
+
+                    # Mark chunk as contextualized in metadata
+                    if contextualized:
+                        chunk.metadata["contextualized"] = True
+                        # Update metadata in database
+                        await self._manager.db.db_manager.execute(
+                            """
+                            UPDATE {{tables.document_chunks}}
+                            SET metadata = metadata || $1::jsonb
+                            WHERE chunk_id = $2
+                            """,
+                            json.dumps({"contextualized": True}),
+                            str(chunk.chunk_id)
+                        )
+
+                embedding = await generator.generate_embedding(text_for_embedding)
                 await self._manager.update_chunk_embedding(chunk.chunk_id, embedding)
                 successful_count += 1
             except Exception as e:
