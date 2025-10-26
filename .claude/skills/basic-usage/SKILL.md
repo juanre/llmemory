@@ -47,6 +47,8 @@ This skill documents core llmemory operations:
 - `ChunkingStrategy` - Enum for chunking strategies
 - `add_document()` - Add and process documents
 - `search()` - Search for documents
+- `search_with_routing()` - Search with automatic query routing (detects answerable queries)
+- `search_with_documents()` - Search and return results with document metadata
 - `list_documents()` - List documents with pagination
 - `get_document()` - Retrieve specific document
 - `get_document_chunks()` - Get chunks with pagination
