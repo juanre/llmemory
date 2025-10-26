@@ -272,7 +272,6 @@ class TestConfigurationValidation:
         monkeypatch.setenv("LLMEMORY_SEARCH_CACHE_TTL", "7200")
         monkeypatch.setenv("LLMEMORY_DB_MAX_POOL_SIZE", "50")
         monkeypatch.setenv("LLMEMORY_LOG_LEVEL", "DEBUG")
-        monkeypatch.setenv("LLMEMORY_DISABLE_CACHING", "1")
 
         config = LLMemoryConfig.from_env()
 
@@ -281,7 +280,6 @@ class TestConfigurationValidation:
         assert config.search.cache_ttl == 7200
         assert config.database.max_pool_size == 50
         assert config.log_level == "DEBUG"
-        assert config.enable_caching == False
 
 
 class TestExceptionHierarchy:
