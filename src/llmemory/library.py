@@ -14,14 +14,14 @@ import logging
 import time
 from dataclasses import replace as dc_replace
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Awaitable, Callable, Dict, List, Literal, Optional, Sequence, Tuple, Union
 from uuid import UUID
 
 from pgdbm import AsyncDatabaseManager
 
 from .batch_processor import (BackgroundEmbeddingProcessor,
                               BatchEmbeddingProcessor)
-from .config import LLMemoryConfig, get_config
+from .config import LLMemoryConfig, apply_hnsw_profile, get_config
 from .embedding_providers import EmbeddingProvider, EmbeddingProviderFactory
 from .embeddings import EmbeddingGenerator
 from .exceptions import (ConfigurationError, DocumentNotFoundError,
@@ -32,8 +32,9 @@ from .models import (ChunkingConfig, DeleteResult, Document, DocumentAddResult,
                      DocumentWithChunks, EnrichedSearchResult, OwnerStatistics,
                      SearchQuery, SearchResult, SearchResultWithDocuments,
                      SearchType)
-from .query_expansion import QueryExpansionService
-from .reranker import RerankerService
+from .query_expansion import QueryExpansionService, ExpansionCallback
+from .reranker import (CrossEncoderReranker, OpenAIResponsesReranker,
+                       RerankerService)
 from .search_optimizer import OptimizedAsyncSearch
 from .validators import get_validator
 
@@ -74,6 +75,7 @@ class LLMemory:
         self.connection_string = connection_string
         self.openai_api_key = openai_api_key
         self.config = config or get_config()
+        apply_hnsw_profile(self.config)
         self.validator = get_validator()
         self._external_db = db_manager is not None
         self._db_manager = db_manager
@@ -133,7 +135,11 @@ class LLMemory:
         if self._external_db:
             # Use external db manager
             self._manager = MemoryManager.from_db_manager(
-                self._db_manager, summary_generator=self._summary_generator
+                self._db_manager,
+                summary_generator=self._summary_generator,
+                hnsw_ef_search=self.config.search.hnsw_ef_search,
+                hnsw_m=self.config.database.hnsw_m,
+                hnsw_ef_construction=self.config.database.hnsw_ef_construction,
             )
             await self._manager.initialize()
         else:
@@ -145,6 +151,9 @@ class LLMemory:
                 min_connections=self.config.database.min_pool_size,
                 max_connections=self.config.database.max_pool_size,
                 summary_generator=self._summary_generator,
+                hnsw_ef_search=self.config.search.hnsw_ef_search,
+                hnsw_m=self.config.database.hnsw_m,
+                hnsw_ef_construction=self.config.database.hnsw_ef_construction,
             )
 
         # Initialize embedding providers registry
@@ -156,12 +165,16 @@ class LLMemory:
             cache_ttl=300,
             max_concurrent_queries=100,
             enable_query_optimization=True,
+            hnsw_ef_search=self.config.search.hnsw_ef_search,
         )
 
-        # Initialize query expansion
-        self._query_expander = QueryExpansionService(self.config.search)
-        # Initialize reranker
-        self._reranker = RerankerService(self.config.search)
+        # Initialize query expansion and reranking
+        expansion_callback = self._create_query_expansion_callback()
+        self._query_expander = QueryExpansionService(
+            self.config.search,
+            llm_callback=expansion_callback
+        )
+        self._reranker = self._create_reranker_service()
 
         self._initialized = True
         logger.info("LLMemory initialized successfully")
@@ -394,6 +407,135 @@ class LLMemory:
             return summary
 
         return generator
+
+    def _create_query_expansion_callback(self) -> Optional[ExpansionCallback]:
+        """Create LLM callback for query expansion if configured.
+
+        Returns:
+            Async callback function that generates query variants using LLM,
+            or None if no expansion model configured.
+        """
+        model = self.config.search.query_expansion_model
+        if not model:
+            return None
+
+        # Check if we have OpenAI API key
+        if not self.openai_api_key:
+            logger.warning(
+                "query_expansion_model configured but no OpenAI API key available. "
+                "Falling back to heuristic expansion."
+            )
+            return None
+
+        async def openai_expansion_callback(query_text: str, max_variants: int) -> Sequence[str]:
+            """Generate query variants using OpenAI."""
+            from openai import AsyncOpenAI
+
+            client = AsyncOpenAI(api_key=self.openai_api_key)
+
+            prompt = f"""Generate {max_variants} alternative search queries that capture the same intent as the original query.
+
+Original query: {query_text}
+
+Requirements:
+1. Semantically similar but use different words and phrasings
+2. Include both more specific and more general variations
+3. Capture different aspects or perspectives of the query
+4. Keep queries concise (under 20 words each)
+5. Return ONLY the alternative queries, one per line, no numbering or formatting
+
+Alternative queries:"""
+
+            try:
+                response = await client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are a query expansion expert. Generate diverse, semantically similar search queries."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    temperature=0.7,
+                    max_tokens=200,
+                    timeout=5.0
+                )
+
+                # Parse variants from response
+                content = response.choices[0].message.content.strip()
+                variants = [
+                    line.strip()
+                    for line in content.split('\n')
+                    if line.strip() and not line.strip().startswith(('#', '-', '*'))
+                ]
+
+                return variants[:max_variants]
+
+            except Exception as e:
+                logger.warning(f"LLM query expansion failed: {e}")
+                return []
+
+        return openai_expansion_callback
+
+    def _create_reranker_service(self) -> RerankerService:
+        """Instantiate reranker service with optional cross-encoder backend."""
+
+        score_callback: Optional[Callable[[str, Sequence[SearchResult]], Awaitable[Sequence[float]]]] = None
+
+        provider = (self.config.search.rerank_provider or "lexical").lower()
+        model_name = self.config.search.default_rerank_model or ""
+
+        if provider == "openai":
+            try:
+                reranker = OpenAIResponsesReranker(
+                    model=model_name or "gpt-4.1-mini",
+                    max_candidates=self.config.search.rerank_top_k,
+                )
+
+                async def callback(
+                    query_text: str, results: Sequence[SearchResult]
+                ) -> Sequence[float]:
+                    return await reranker.score(query_text, results)
+
+                score_callback = callback
+                logger.info("OpenAI reranker initialised with model %s", reranker.model)
+            except ImportError as exc:
+                logger.warning(
+                    "OpenAI reranker unavailable: %s. Falling back to lexical.", exc
+                )
+            except Exception as exc:  # pragma: no cover - runtime errors
+                logger.error("OpenAI reranker error: %s", exc)
+
+        elif model_name.startswith("cross-encoder/"):
+            try:
+                cross_encoder = CrossEncoderReranker(
+                    model_name=model_name,
+                    device=self.config.search.rerank_device,
+                    batch_size=self.config.search.rerank_batch_size,
+                )
+
+                async def callback(
+                    query_text: str, results: Sequence[SearchResult]
+                ) -> Sequence[float]:
+                    return await cross_encoder.score(query_text, results)
+
+                score_callback = callback
+                logger.info("Cross-encoder reranker initialised: %s", model_name)
+            except ImportError as exc:
+                logger.warning(
+                    "Failed to load cross-encoder '%s': %s. Falling back to lexical reranker.",
+                    model_name,
+                    exc,
+                )
+            except Exception as exc:  # pragma: no cover - init edge cases
+                logger.error(
+                    "Cross-encoder initialisation error for '%s': %s", model_name, exc
+                )
+
+        return RerankerService(self.config.search, score_callback=score_callback)
 
     async def _generate_query_variants(self, query: SearchQuery) -> List[str]:
         """Generate query variants when expansion is enabled."""

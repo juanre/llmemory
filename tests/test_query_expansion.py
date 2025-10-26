@@ -3,6 +3,7 @@
 import json
 
 import pytest
+from unittest.mock import AsyncMock, Mock
 
 from llmemory.config import LLMemoryConfig
 from llmemory.library import LLMemory
@@ -183,6 +184,88 @@ async def test_chunk_summary_generation(memory_db):
         top = results[0]
         assert top.summary is not None and len(top.summary) > 0
         assert top.metadata.get("summary") == top.summary
+
+    finally:
+        await memory.close()
+
+
+@pytest.mark.asyncio
+async def test_llm_query_expansion_callback_is_invoked(memory_db):
+    """Verify that LLM callback is called when query_expansion=True."""
+    config = LLMemoryConfig()
+    config.search.enable_query_expansion = True
+
+    memory = LLMemory(
+        connection_string=memory_db.db.config.get_dsn(),
+        config=config,
+    )
+    await memory.initialize()
+
+    try:
+        owner_id = "test-owner"
+
+        # Add a test document
+        await memory.add_document(
+            owner_id=owner_id,
+            id_at_origin="test-doc",
+            document_name="test.txt",
+            document_type=DocumentType.TEXT,
+            content="Machine learning is a subset of artificial intelligence.",
+            generate_embeddings=False,
+        )
+
+        # Track if callback was invoked
+        call_count = 0
+
+        async def mock_llm_callback(query: str, limit: int):
+            nonlocal call_count
+            call_count += 1
+            return [
+                "semantic variant one",
+                "semantic variant two"
+            ]
+
+        # Wire the callback (this will fail - method doesn't exist yet)
+        memory._query_expander.llm_callback = mock_llm_callback
+
+        results = await memory.search(
+            owner_id=owner_id,
+            query_text="test query",
+            search_type=SearchType.TEXT,
+            query_expansion=True,
+            max_query_variants=3,
+            limit=5
+        )
+
+        # Verify callback was invoked
+        assert call_count > 0, "LLM callback should be invoked"
+
+    finally:
+        await memory.close()
+
+
+@pytest.mark.asyncio
+async def test_llm_expansion_auto_wired_from_config(memory_db):
+    """Verify LLMemory automatically wires LLM callback when configured."""
+    from llmemory.query_expansion import QueryExpansionService
+
+    # Configure LLM expansion model
+    config = LLMemoryConfig()
+    config.search.enable_query_expansion = True
+    config.search.query_expansion_model = "gpt-4o-mini"
+
+    memory = LLMemory(
+        connection_string=memory_db.db.config.get_dsn(),
+        openai_api_key="sk-test-key",
+        config=config
+    )
+    await memory.initialize()
+
+    try:
+        # Verify query expander has LLM callback wired
+        assert memory._query_expander is not None
+        assert memory._query_expander.llm_callback is not None, \
+            "LLM callback should be auto-wired when query_expansion_model configured"
 
     finally:
         await memory.close()
