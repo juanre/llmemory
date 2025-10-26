@@ -1549,6 +1549,26 @@ Alternative queries:"""
         generator = await self._get_embedding_generator()
         return await generator.generate_embedding(query_text)
 
+    async def _mark_chunks_as_contextualized(self, chunks: List[DocumentChunk]) -> None:
+        """Mark chunks as contextualized in metadata during chunking phase.
+
+        Sets the metadata flag in both memory and database so embeddings can be
+        generated with context later, even if embeddings aren't created immediately.
+        """
+        for chunk in chunks:
+            chunk.metadata["contextualized"] = True
+
+            # Update metadata in database
+            await self._manager.db.db_manager.execute(
+                """
+                UPDATE {{tables.document_chunks}}
+                SET metadata = metadata || $1::jsonb
+                WHERE chunk_id = $2
+                """,
+                json.dumps({"contextualized": True}),
+                str(chunk.chunk_id)
+            )
+
     def _contextualize_chunk(self, chunk: DocumentChunk, document: Document) -> Tuple[str, bool]:
         """Prepend document context to chunk for embedding.
 
@@ -1578,26 +1598,11 @@ Alternative queries:"""
 
         for chunk in chunks:
             try:
-                # Contextualize chunk if document is provided and feature is enabled
+                # Check if chunk should be contextualized based on metadata flag
                 text_for_embedding = chunk.content
-                contextualized = False
 
-                if document:
-                    text_for_embedding, contextualized = self._contextualize_chunk(chunk, document)
-
-                    # Mark chunk as contextualized in metadata
-                    if contextualized:
-                        chunk.metadata["contextualized"] = True
-                        # Update metadata in database
-                        await self._manager.db.db_manager.execute(
-                            """
-                            UPDATE {{tables.document_chunks}}
-                            SET metadata = metadata || $1::jsonb
-                            WHERE chunk_id = $2
-                            """,
-                            json.dumps({"contextualized": True}),
-                            str(chunk.chunk_id)
-                        )
+                if document and chunk.metadata.get("contextualized"):
+                    text_for_embedding, _ = self._contextualize_chunk(chunk, document)
 
                 embedding = await generator.generate_embedding(text_for_embedding)
                 await self._manager.update_chunk_embedding(chunk.chunk_id, embedding)
