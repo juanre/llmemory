@@ -125,15 +125,8 @@ class DatabaseConfig:
 
     # Schema
     schema_name: str = "llmemory"
-    documents_table: str = "documents"
-    chunks_table: str = "document_chunks"
-    embeddings_queue_table: str = "embedding_queue"
-    search_history_table: str = "search_history"
-    embedding_providers_table: str = "embedding_providers"
-    chunk_embeddings_prefix: str = "chunk_embeddings_"
 
-    # Index names
-    hnsw_index_name: str = "document_chunks_embedding_hnsw"
+    # HNSW index settings
     hnsw_m: int = 16
     hnsw_ef_construction: int = 200
 
@@ -168,14 +161,10 @@ class LLMemoryConfig:
     validation: ValidationConfig = field(default_factory=ValidationConfig)
 
     # Feature flags
-    enable_caching: bool = True
     enable_metrics: bool = True
-    enable_background_processing: bool = True
 
     # Logging
     log_level: str = "INFO"
-    log_slow_queries: bool = True
-    slow_query_threshold: float = 1.0  # seconds
 
     @classmethod
     def from_env(cls) -> "LLMemoryConfig":
@@ -256,9 +245,6 @@ class LLMemoryConfig:
             config.log_level = log_level
 
         # Feature flags
-        if env_var("LLMEMORY_DISABLE_CACHING", "AWORD_DISABLE_CACHING"):
-            config.enable_caching = False
-
         if env_var("LLMEMORY_DISABLE_METRICS", "AWORD_DISABLE_METRICS"):
             config.enable_metrics = False
 
