@@ -7,6 +7,12 @@ import os
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
+HNSW_PRESETS: Dict[str, Dict[str, int]] = {
+    "fast": {"m": 8, "ef_construction": 80, "ef_search": 40},
+    "balanced": {"m": 16, "ef_construction": 200, "ef_search": 100},
+    "accurate": {"m": 32, "ef_construction": 400, "ef_search": 200},
+}
+
 
 @dataclass
 class EmbeddingProviderConfig:
@@ -103,7 +109,7 @@ class SearchConfig:
     # Search parameters
     default_limit: int = 10
     max_limit: int = 100
-    default_search_type: str = "hybrid"
+    hnsw_profile: str = "balanced"
 
     # RRF parameters
     rrf_k: int = 50
@@ -117,24 +123,17 @@ class SearchConfig:
     # Reranking
     enable_rerank: bool = False
     default_rerank_model: Optional[str] = None
+    rerank_provider: str = "lexical"
     rerank_top_k: int = 50
     rerank_return_k: int = 15
+    rerank_device: Optional[str] = None
+    rerank_batch_size: int = 16
 
     # Vector search
     hnsw_ef_search: int = 100
-    vector_search_limit: int = 100
-
-    # Text search
-    text_search_limit: int = 100
-    text_search_config: str = "english"
 
     # Cache settings
     cache_ttl: int = 3600  # 1 hour
-    cache_max_size: int = 10000
-
-    # Performance
-    search_timeout: float = 5.0
-    min_score_threshold: float = 0.0
 
 
 @dataclass
@@ -298,8 +297,23 @@ class LLMemoryConfig:
         if (val := env_var("LLMEMORY_RERANK_RETURN_K", "AWORD_RERANK_RETURN_K")):
             config.search.rerank_return_k = int(val)
 
+        if (val := env_var("LLMEMORY_RERANK_MODEL", "AWORD_RERANK_MODEL")):
+            config.search.default_rerank_model = val
+
+        if (val := env_var("LLMEMORY_RERANK_PROVIDER", "AWORD_RERANK_PROVIDER")):
+            config.search.rerank_provider = val
+
+        if (val := env_var("LLMEMORY_RERANK_DEVICE", "AWORD_RERANK_DEVICE")):
+            config.search.rerank_device = val
+
+        if (val := env_var("LLMEMORY_RERANK_BATCH_SIZE", "AWORD_RERANK_BATCH_SIZE")):
+            config.search.rerank_batch_size = int(val)
+
         if (val := env_bool("LLMEMORY_ENABLE_CHUNK_SUMMARIES", "AWORD_ENABLE_CHUNK_SUMMARIES")) is not None:
             config.chunking.enable_chunk_summaries = val
+
+        if profile := env_var("LLMEMORY_HNSW_PROFILE", "AWORD_HNSW_PROFILE"):
+            config.search.hnsw_profile = profile
 
         return config
 
@@ -357,3 +371,23 @@ def set_config(config: LLMemoryConfig) -> None:
     global _config
     config.validate()
     _config = config
+
+
+def apply_hnsw_profile(config: LLMemoryConfig) -> None:
+    """Apply preset HNSW parameters to the configuration when applicable."""
+    profile_key = (config.search.hnsw_profile or "").lower()
+    preset = HNSW_PRESETS.get(profile_key)
+    if not preset:
+        return
+
+    default_db = DatabaseConfig()
+    default_search = SearchConfig()
+
+    if config.database.hnsw_m == default_db.hnsw_m:
+        config.database.hnsw_m = preset["m"]
+
+    if config.database.hnsw_ef_construction == default_db.hnsw_ef_construction:
+        config.database.hnsw_ef_construction = preset["ef_construction"]
+
+    if config.search.hnsw_ef_search == default_search.hnsw_ef_search:
+        config.search.hnsw_ef_search = preset["ef_search"]
