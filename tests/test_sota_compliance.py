@@ -12,7 +12,10 @@ async def test_sota_hybrid_search(test_db_factory):
     """Verify hybrid search (vector + BM25) works correctly."""
     db_manager = await test_db_factory.create_db(suffix="hybrid", schema="llmemory")
 
-    memory = LLMemory(connection_string=db_manager.config.get_dsn())
+    memory = LLMemory(
+        connection_string=db_manager.config.get_dsn(),
+        openai_api_key=os.getenv("OPENAI_API_KEY")
+    )
     await memory.initialize()
 
     # Add test documents
@@ -54,7 +57,11 @@ async def test_sota_query_expansion_llm(test_db_factory):
     config.search.query_expansion_model = "gpt-4o-mini"
 
     db_manager = await test_db_factory.create_db(suffix="expansion", schema="llmemory")
-    memory = LLMemory(connection_string=db_manager.config.get_dsn(), config=config)
+    memory = LLMemory(
+        connection_string=db_manager.config.get_dsn(),
+        openai_api_key=os.getenv("OPENAI_API_KEY"),
+        config=config
+    )
     await memory.initialize()
 
     await memory.add_document(
@@ -85,7 +92,10 @@ async def test_sota_reranking(test_db_factory):
     """Verify reranking improves result quality."""
     db_manager = await test_db_factory.create_db(suffix="rerank", schema="llmemory")
 
-    memory = LLMemory(connection_string=db_manager.config.get_dsn())
+    memory = LLMemory(
+        connection_string=db_manager.config.get_dsn(),
+        openai_api_key=os.getenv("OPENAI_API_KEY")
+    )
     await memory.initialize()
 
     await memory.add_document(
@@ -124,7 +134,10 @@ async def test_sota_query_routing(test_db_factory):
 
     db_manager = await test_db_factory.create_db(suffix="routing", schema="llmemory")
 
-    memory = LLMemory(connection_string=db_manager.config.get_dsn())
+    memory = LLMemory(
+        connection_string=db_manager.config.get_dsn(),
+        openai_api_key=os.getenv("OPENAI_API_KEY")
+    )
     await memory.initialize()
 
     # Add some documents
@@ -167,7 +180,11 @@ async def test_sota_contextual_retrieval(test_db_factory):
 
     db_manager = await test_db_factory.create_db(suffix="contextual", schema="llmemory")
 
-    memory = LLMemory(connection_string=db_manager.config.get_dsn(), config=config)
+    memory = LLMemory(
+        connection_string=db_manager.config.get_dsn(),
+        openai_api_key=os.getenv("OPENAI_API_KEY"),
+        config=config
+    )
     await memory.initialize()
 
     result = await memory.add_document(
