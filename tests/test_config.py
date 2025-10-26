@@ -1,5 +1,26 @@
 import pytest
-from llmemory.config import SearchConfig, LLMemoryConfig
+from llmemory.config import SearchConfig, ChunkingConfig, LLMemoryConfig
+
+
+def test_chunking_config_only_has_used_fields():
+    """Verify ChunkingConfig only contains fields that are actually used."""
+    from llmemory.config import ChunkingConfig
+
+    config = ChunkingConfig()
+
+    # Fields that SHOULD exist
+    assert hasattr(config, 'enable_chunk_summaries')
+    assert hasattr(config, 'summary_max_tokens')
+    assert hasattr(config, 'min_chunk_size')
+    assert hasattr(config, 'max_chunk_size')
+
+    # Fields that should NOT exist (unused)
+    assert not hasattr(config, 'default_parent_size'), "Never used in chunking"
+    assert not hasattr(config, 'default_child_size'), "Never used in chunking"
+    assert not hasattr(config, 'default_overlap'), "Never used in chunking"
+    assert not hasattr(config, 'max_chunk_depth'), "Never enforced"
+    assert not hasattr(config, 'summary_prompt_template'), "Summaries use truncation"
+    assert not hasattr(config, 'chunk_configs'), "Document-type configs unused"
 
 
 def test_search_config_only_has_used_fields():

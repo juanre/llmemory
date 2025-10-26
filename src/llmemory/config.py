@@ -70,36 +70,13 @@ class EmbeddingConfig:
 class ChunkingConfig:
     """Configuration for document chunking."""
 
-    # Default chunk sizes (in tokens)
-    default_parent_size: int = 1000
-    default_child_size: int = 200
-    default_overlap: int = 50
-
     # Summaries
     enable_chunk_summaries: bool = False
     summary_max_tokens: int = 120
-    summary_prompt_template: str = (
-        "Summarize the following text in one or two sentences focusing on key facts: {text}"
-    )
 
     # Min/max constraints
     min_chunk_size: int = 50
     max_chunk_size: int = 2000
-    max_chunk_depth: int = 3  # Maximum hierarchy depth
-
-    # Document-type specific configurations
-    chunk_configs: Dict[str, Dict[str, int]] = field(
-        default_factory=lambda: {
-            "email": {"parent": 300, "child": 150, "overlap": 25},
-            "business_report": {"parent": 600, "child": 300, "overlap": 50},
-            "technical_doc": {"parent": 800, "child": 400, "overlap": 60},
-            "presentation": {"parent": 400, "child": 200, "overlap": 30},
-            "legal_document": {"parent": 500, "child": 250, "overlap": 40},
-            "pdf": {"parent": 800, "child": 400, "overlap": 60},
-            "markdown": {"parent": 600, "child": 300, "overlap": 50},
-            "code": {"parent": 500, "child": 250, "overlap": 40},
-        }
-    )
 
 
 @dataclass
