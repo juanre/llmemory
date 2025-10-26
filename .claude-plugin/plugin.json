@@ -1,0 +1,13 @@
+{
+  "name": "llmemory",
+  "description": "High-performance document memory system with vector search capabilities - skills for RAG, hybrid search, multi-query, and multi-tenant applications",
+  "version": "0.4.0",
+  "author": {
+    "name": "Juan Reyero",
+    "email": "juan@juanreyero.com"
+  },
+  "homepage": "https://github.com/juanre/llmemory",
+  "repository": "https://github.com/juanre/llmemory",
+  "license": "MIT",
+  "keywords": ["llmemory", "rag", "vector-search", "hybrid-search", "semantic-search", "pgvector", "skills"]
+}

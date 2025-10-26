@@ -60,11 +60,10 @@ bench = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/juanreyero/llmemory"
-Documentation = "https://github.com/juanreyero/llmemory#readme"
-Repository = "https://github.com/juanreyero/llmemory"
-Issues = "https://github.com/juanreyero/llmemory/issues"
-Changelog = "https://github.com/juanreyero/llmemory/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/juanre/llmemory"
+Documentation = "https://github.com/juanre/llmemory"
+Repository = "https://github.com/juanre/llmemory"
+Changelog = "https://github.com/juanre/llmemory/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["hatchling"]
