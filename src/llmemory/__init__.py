@@ -45,7 +45,7 @@ from .models import (
 from .query_router import QueryRouter, RouteDecision, RouteType
 from .reranker import CrossEncoderReranker, OpenAIResponsesReranker
 
-__version__ = "0.2.0"
+__version__ = "0.4.0"
 __all__ = [
     # Main interface
     "LLMemory",
