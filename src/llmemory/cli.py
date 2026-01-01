@@ -106,7 +106,14 @@ def index(
     Finds items in ~/Archive that are missing llmemory indexing fields
     in their metadata sidecars, extracts text, and indexes them.
     """
-    asyncio.run(_run_index(archive_path, entity, dry_run, verbose))
+    try:
+        asyncio.run(_run_index(archive_path, entity, dry_run, verbose))
+    except KeyboardInterrupt:
+        click.echo("\nIndexing interrupted.")
+        raise SystemExit(130)
+    except Exception as e:
+        click.secho(f"Error during indexing: {e}", fg="red", err=True)
+        raise SystemExit(1)
 
 
 async def _run_search(
@@ -127,6 +134,18 @@ async def _run_search(
 
     if not entity:
         click.secho("Error: --entity is required", fg="red", err=True)
+        raise SystemExit(1)
+
+    if limit < 1 or limit > 1000:
+        click.secho("Error: --limit must be between 1 and 1000", fg="red", err=True)
+        raise SystemExit(1)
+
+    if not query_text.strip():
+        click.secho("Error: query cannot be empty", fg="red", err=True)
+        raise SystemExit(1)
+
+    if date_from and date_to and date_from > date_to:
+        click.secho("Error: --date-from cannot be after --date-to", fg="red", err=True)
         raise SystemExit(1)
 
     # Initialize llmemory
@@ -243,11 +262,20 @@ def search(
 
     QUERY is the search text. Requires --entity to specify which entity to search.
     """
-    asyncio.run(
-        _run_search(
-            query, entity, source, document_type, date_from, date_to, limit, json_output
+    try:
+        asyncio.run(
+            _run_search(
+                query, entity, source, document_type, date_from, date_to, limit, json_output
+            )
         )
-    )
+    except KeyboardInterrupt:
+        click.echo("\nSearch interrupted.")
+        raise SystemExit(130)
+    except SystemExit:
+        raise
+    except Exception as e:
+        click.secho(f"Error during search: {e}", fg="red", err=True)
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

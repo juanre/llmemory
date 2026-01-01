@@ -151,18 +151,33 @@ class ArchiveIndexer:
             logger.exception(f"Error extracting text from {item.content_path}: {e}")
             return None
 
-    def _extract_text_file(self, path: Path) -> str:
+    def _extract_text_file(self, path: Path) -> Optional[str]:
         """Extract text from a plain text or markdown file."""
-        return path.read_text(encoding="utf-8")
+        try:
+            return path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            # Try with fallback encoding
+            try:
+                return path.read_text(encoding="latin-1")
+            except Exception:
+                logger.warning(f"Failed to decode {path} with utf-8 or latin-1")
+                return None
 
-    def _extract_html(self, path: Path) -> str:
+    def _extract_html(self, path: Path) -> Optional[str]:
         """Extract text from an HTML file.
 
         Strips HTML tags and returns plain text.
         """
         import re
 
-        html = path.read_text(encoding="utf-8")
+        try:
+            html = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            try:
+                html = path.read_text(encoding="latin-1")
+            except Exception:
+                logger.warning(f"Failed to decode HTML {path}")
+                return None
 
         # Remove script and style elements
         html = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE)
