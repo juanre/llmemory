@@ -203,11 +203,12 @@ class TestSearchOperations:
         ]
 
         # Process documents and store their chunks
+        # Use unique id_at_origin for each to avoid upsert behavior
         all_chunks = []
-        for content in contents:
+        for i, content in enumerate(contents):
             doc, chunks = await memory_manager.process_document(
                 owner_id="test_owner",
-                id_at_origin="test_vector",
+                id_at_origin=f"test_vector_{i}",
                 document_name=f"{content[:20]}.txt",
                 document_type=DocumentType.TEXT,
                 content=content,

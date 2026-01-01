@@ -15,10 +15,11 @@ BEGIN
 END $$;
 
 -- Documents table (using pgdbm template syntax for schema isolation)
+-- Identity contract: (owner_id, id_at_origin) forms the natural key for archive-protocol
 CREATE TABLE IF NOT EXISTS {{tables.documents}} (
     document_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    owner_id TEXT NOT NULL,       -- Owner identifier for filtering (e.g., workspace_id)
-    id_at_origin TEXT NOT NULL,  -- User ID, thread ID, or other origin identifier within owner
+    owner_id TEXT NOT NULL,       -- Archive-protocol entity (e.g., jro, tsm, gsk)
+    id_at_origin TEXT NOT NULL,  -- Archive-protocol document_id (stable origin identifier)
     document_type TEXT NOT NULL,  -- pdf, markdown, code, text, html, docx, email, report, chat
     document_name TEXT NOT NULL,
     document_date TIMESTAMPTZ,    -- When the document was created/modified
@@ -92,8 +93,8 @@ CREATE TABLE IF NOT EXISTS {{tables.embedding_queue}} (
 -- Search history for analytics and improvement (no embeddings stored)
 CREATE TABLE IF NOT EXISTS {{tables.search_history}} (
     search_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    owner_id TEXT NOT NULL,      -- Owner identifier for filtering
-    id_at_origin TEXT NOT NULL,
+    owner_id TEXT NOT NULL,      -- Archive-protocol entity (e.g., jro, tsm, gsk)
+    id_at_origin TEXT NOT NULL,  -- Archive-protocol document_id (for filtering)
     query_text TEXT NOT NULL,
     provider_id TEXT REFERENCES {{tables.embedding_providers}}(provider_id),
     search_type TEXT NOT NULL,  -- vector, text, hybrid
@@ -121,6 +122,8 @@ USING gin(search_vector);
 CREATE INDEX IF NOT EXISTS idx_documents_owner_id
 ON {{tables.documents}} (owner_id);
 
+-- Index for archive-protocol identity lookups (owner_id, id_at_origin)
+-- Note: Migration 002 adds a UNIQUE constraint for upsert behavior
 CREATE INDEX IF NOT EXISTS idx_documents_owner_origin
 ON {{tables.documents}} (owner_id, id_at_origin);
 
@@ -237,7 +240,7 @@ ANALYZE {{tables.embedding_queue}};
 ANALYZE {{tables.search_history}};
 
 -- Add comments explaining design choices
-COMMENT ON TABLE {{tables.documents}} IS 'Document metadata with owner-based multi-tenancy and language detection';
+COMMENT ON TABLE {{tables.documents}} IS 'Document metadata using archive-protocol identity contract (owner_id, id_at_origin)';
 COMMENT ON TABLE {{tables.document_chunks}} IS 'Hierarchical document chunks for semantic search with multi-language support';
 COMMENT ON TABLE {{tables.embedding_providers}} IS 'Registry of available embedding providers and their configurations';
 COMMENT ON TABLE {{tables.embeddings_openai_3_small}} IS 'OpenAI embeddings for document chunks (1536 dimensions)';
@@ -245,4 +248,4 @@ COMMENT ON TABLE {{tables.embedding_queue}} IS 'Queue for batch embedding genera
 COMMENT ON TABLE {{tables.search_history}} IS 'Search analytics for improving retrieval quality';
 COMMENT ON INDEX idx_embeddings_openai_3_small_embedding IS 'HNSW index for fast k-NN search with OpenAI embeddings';
 COMMENT ON INDEX idx_chunks_search_vector_gin IS 'GIN index for full-text search performance';
-COMMENT ON INDEX idx_documents_owner_origin IS 'Composite index for multi-tenant filtering';
+COMMENT ON INDEX idx_documents_owner_origin IS 'Archive-protocol identity lookup (entity, document_id)';
