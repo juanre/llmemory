@@ -38,6 +38,7 @@ dependencies = [
     "sentence-transformers>=4.1.0",
     "pgdbm",
     "click>=8.3.1",
+    "pypdf>=6.0.0",
 ]
 
 [project.optional-dependencies]

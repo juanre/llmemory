@@ -159,11 +159,11 @@ async def _run_search(
         if document_type:
             metadata_filter["document_type"] = document_type
 
-        # Create search query (use text search for simplicity)
+        # Create search query (hybrid retrieval by default)
         search_query = SearchQuery(
             owner_id=entity,
             query_text=query_text,
-            search_type=SearchType.TEXT,
+            search_type=SearchType.HYBRID,
             limit=limit,
             metadata_filter=metadata_filter if metadata_filter else None,
             date_from=date_from,
