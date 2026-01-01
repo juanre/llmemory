@@ -5,7 +5,6 @@ Provides commands to:
 - search: Query the llmemory index
 """
 
-import json
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -68,8 +67,12 @@ def index(
         click.echo("\nDry run - no changes made.")
         return
 
-    # TODO: Actually index items
-    click.echo(f"\nIndexed {len(unindexed)} items.")
+    if not unindexed:
+        click.echo("No unindexed items found.")
+        return
+
+    click.secho("Indexing functionality not yet implemented", fg="yellow", err=True)
+    click.echo(f"Would index {len(unindexed)} items.")
 
 
 @cli.command()
@@ -129,8 +132,8 @@ def search(
 
     QUERY is the search text.
     """
-    # TODO: Implement actual search using MemoryManager
-    click.echo(f"Searching for: {query}")
+    click.secho("Search functionality not yet implemented", fg="yellow", err=True)
+    click.echo(f"Would search for: {query}")
 
     if entity:
         click.echo(f"  Entity: {entity}")
@@ -144,20 +147,6 @@ def search(
         click.echo(f"  Date to: {date_to}")
 
     click.echo(f"  Limit: {limit}")
-
-    # Placeholder results
-    results: list[dict] = []
-
-    if json_output:
-        click.echo(json.dumps({"query": query, "results": results}, indent=2))
-    else:
-        if not results:
-            click.echo("\nNo results found.")
-        else:
-            for i, result in enumerate(results, 1):
-                click.echo(f"\n{i}. {result.get('title', 'Untitled')}")
-                click.echo(f"   Path: {result.get('path', 'N/A')}")
-                click.echo(f"   Score: {result.get('score', 0):.3f}")
 
 
 if __name__ == "__main__":

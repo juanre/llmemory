@@ -36,6 +36,11 @@ class ArchiveItem:
         """Archive-protocol document_id used as llmemory id_at_origin."""
         return self.document_id
 
+    @property
+    def owner_id(self) -> str:
+        """Archive-protocol entity used as llmemory owner_id."""
+        return self.entity
+
 
 class ArchiveScanner:
     """Scans the archive filesystem to find items for indexing."""
@@ -48,7 +53,6 @@ class ArchiveScanner:
         ".html",
         ".htm",
         ".pdf",
-        ".json",  # Some JSON files contain text content
     }
 
     def __init__(self, archive_path: Path):

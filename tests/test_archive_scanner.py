@@ -222,3 +222,15 @@ class TestArchiveItem:
         )
 
         assert item.id_at_origin == "doc-2024-001"
+
+    def test_owner_id(self) -> None:
+        """Test owner_id property returns entity."""
+        item = ArchiveItem(
+            content_path=Path("/archive/jro/docs/2024/doc.txt"),
+            sidecar_path=Path("/archive/jro/docs/2024/doc.json"),
+            entity="jro",
+            document_id="doc-2024-001",
+            relative_path="jro/docs/2024/doc.txt",
+        )
+
+        assert item.owner_id == "jro"
