@@ -20,6 +20,7 @@ class TestEnhancedSearch:
         future_date = now + timedelta(days=7)
 
         # Add documents with different dates
+        # Use unique id_at_origin for each document (archive-protocol identity)
         docs = []
         for i, (name, date) in enumerate(
             [
@@ -29,9 +30,10 @@ class TestEnhancedSearch:
                 ("future_doc.pdf", future_date),
             ]
         ):
+            doc_id = f"doc_{i}"  # Unique id_at_origin for each
             doc = await memory_manager.add_document(
                 owner_id="workspace_test",
-                id_at_origin="user123",
+                id_at_origin=doc_id,
                 document_name=name,
                 document_type=DocumentType.PDF,
                 document_date=date,
@@ -41,7 +43,7 @@ class TestEnhancedSearch:
             # Process document to create chunks
             _, chunks = await memory_manager.process_document(
                 owner_id="workspace_test",
-                id_at_origin="user123",
+                id_at_origin=doc_id,
                 document_name=name,
                 document_type=DocumentType.PDF,
                 content=f"Content from {name}",

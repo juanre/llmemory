@@ -211,11 +211,20 @@ class LLMemory:
         generate_embeddings: bool = True,
     ) -> DocumentAddResult:
         """
-        Add a document and process it into chunks.
+        Add or re-index a document with idempotent upsert semantics.
+
+        Uses the archive-protocol identity contract:
+        - owner_id = archive-protocol entity (e.g., jro, tsm, gsk)
+        - id_at_origin = archive-protocol document_id
+
+        Re-indexing the same (owner_id, id_at_origin) is idempotent:
+        - Document record is preserved (same llmemory document_id)
+        - Old chunks are replaced with new ones
+        - No duplicates are created
 
         Args:
-            owner_id: Owner identifier for multi-tenancy
-            id_at_origin: Origin identifier within owner
+            owner_id: Archive-protocol entity identifier (e.g., jro, tsm, gsk)
+            id_at_origin: Archive-protocol document_id (stable origin identifier)
             document_name: Name of the document
             document_type: Type of document
             content: Full document content

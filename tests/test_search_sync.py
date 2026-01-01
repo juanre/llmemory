@@ -135,9 +135,10 @@ class TestSearchSync:
     async def test_search_filters(self, memory_manager):
         """Test search with various filters."""
         # Add documents with different metadata
+        # Each document needs unique id_at_origin (archive-protocol identity)
         docs_data = [
             {
-                "id_at_origin": "user_alice",
+                "id_at_origin": "doc_alice_python",
                 "content": "Python is a great programming language for beginners",
                 "metadata": {
                     "author": "alice",
@@ -146,7 +147,7 @@ class TestSearchSync:
                 },
             },
             {
-                "id_at_origin": "user_bob",
+                "id_at_origin": "doc_bob_js",
                 "content": "JavaScript is essential for web development",
                 "metadata": {
                     "author": "bob",
@@ -155,7 +156,7 @@ class TestSearchSync:
                 },
             },
             {
-                "id_at_origin": "user_alice",
+                "id_at_origin": "doc_alice_ml",
                 "content": "Machine learning with Python and scikit-learn",
                 "metadata": {"author": "alice", "category": "ml", "language": "python"},
             },
@@ -187,19 +188,19 @@ class TestSearchSync:
             assert result.metadata.get("language") == "python"
 
         # Test 2: Filter by id_at_origin
-        alice_query = SearchQuery(
+        alice_python_query = SearchQuery(
             owner_id="test_workspace",
             query_text="programming",
             search_type=SearchType.TEXT,
-            id_at_origin="user_alice",
+            id_at_origin="doc_alice_python",
             limit=10,
         )
 
-        alice_results = await memory_manager.search(alice_query)
+        alice_results = await memory_manager.search(alice_python_query)
 
-        # Should only find Alice's documents
+        # Should find Alice's Python document
         assert len(alice_results) > 0
-        # All results should be from Alice (would need to join with documents table to verify)
+        # All results should be from this specific document
 
     async def test_hierarchical_search(self, memory_manager):
         """Test search with hierarchical document structure."""

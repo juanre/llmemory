@@ -137,18 +137,27 @@ class MemoryManager:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Document:
         """
-        Add a new document to the system.
+        Add or update a document using idempotent upsert semantics.
+
+        Uses (owner_id, id_at_origin) as the natural key for the archive-protocol
+        identity contract:
+        - owner_id = archive-protocol entity (e.g., jro, tsm, gsk)
+        - id_at_origin = archive-protocol document_id
+
+        If a document with the same (owner_id, id_at_origin) exists, it will be
+        updated in place, preserving the llmemory document_id. This enables
+        idempotent re-indexing without duplicates.
 
         Args:
-            owner_id: Owner identifier for filtering (e.g., workspace_id)
-            id_at_origin: Origin identifier within owner (user ID, thread ID, etc.)
+            owner_id: Archive-protocol entity identifier (e.g., jro, tsm, gsk)
+            id_at_origin: Archive-protocol document_id (stable origin identifier)
             document_name: Name of the document
             document_type: Type of document
             document_date: Optional document date
             metadata: Optional metadata
 
         Returns:
-            Created Document instance
+            Document instance (created or updated)
         """
         doc = Document(
             owner_id=owner_id,
@@ -159,11 +168,19 @@ class MemoryManager:
             metadata=metadata or {},
         )
 
+        # Upsert: insert or update on conflict with (owner_id, id_at_origin)
+        # Preserves the existing document_id for stable references
         query = """
         INSERT INTO {{tables.documents}} (
             document_id, owner_id, id_at_origin, document_type, document_name,
             document_date, metadata
         ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+        ON CONFLICT (owner_id, id_at_origin) DO UPDATE SET
+            document_type = EXCLUDED.document_type,
+            document_name = EXCLUDED.document_name,
+            document_date = EXCLUDED.document_date,
+            metadata = EXCLUDED.metadata,
+            updated_at = NOW()
         RETURNING document_id, created_at, updated_at
         """
 
@@ -178,11 +195,39 @@ class MemoryManager:
             json.dumps(doc.metadata),
         )
 
+        # Use the returned document_id (may differ from doc.document_id if updated)
+        doc.document_id = UUID(str(result["document_id"]))
         doc.created_at = result["created_at"]
         doc.updated_at = result["updated_at"]
 
-        logger.info(f"Added document {doc.document_id} ({doc.document_name})")
+        is_update = doc.created_at != doc.updated_at
+        action = "Updated" if is_update else "Added"
+        logger.info(f"{action} document {doc.document_id} ({doc.document_name})")
         return doc
+
+    async def delete_document_chunks(self, document_id: UUID) -> int:
+        """
+        Delete all chunks for a document.
+
+        Used during re-indexing to clear old chunks before adding new ones.
+        Preserves the document record for stable references.
+
+        Args:
+            document_id: UUID of the document
+
+        Returns:
+            Number of chunks deleted
+        """
+        query = """
+        DELETE FROM {{tables.document_chunks}}
+        WHERE document_id = $1
+        """
+
+        result = await self.db.db_manager.execute(query, str(document_id))
+        # asyncpg returns a string like "DELETE 5"
+        deleted_count = int(result.split()[-1]) if result else 0
+        logger.debug(f"Deleted {deleted_count} chunks for document {document_id}")
+        return deleted_count
 
     async def process_document(
         self,
@@ -197,11 +242,16 @@ class MemoryManager:
         chunking_config: Optional[ChunkingConfig] = None,
     ) -> Tuple[Document, List[DocumentChunk]]:
         """
-        Process a complete document: add it and create chunks.
+        Process a complete document: add or re-index it with chunks.
+
+        Uses (owner_id, id_at_origin) as the natural key for the archive-protocol
+        identity contract. Re-indexing the same document is idempotent:
+        - Document record is preserved (same llmemory document_id)
+        - Old chunks are replaced with new ones
 
         Args:
-            owner_id: Owner identifier for filtering (e.g., workspace_id)
-            id_at_origin: Origin identifier within owner (user ID, thread ID, etc.)
+            owner_id: Archive-protocol entity identifier (e.g., jro, tsm, gsk)
+            id_at_origin: Archive-protocol document_id (stable origin identifier)
             document_name: Name of the document
             document_type: Type of document
             content: Full document content
@@ -229,7 +279,7 @@ class MemoryManager:
             }
         )
 
-        # Add document
+        # Add or update document (upsert)
         doc = await self.add_document(
             owner_id=owner_id,
             id_at_origin=id_at_origin,
@@ -238,6 +288,15 @@ class MemoryManager:
             document_date=document_date,
             metadata=metadata,
         )
+
+        # If this was an update (re-indexing), delete old chunks first
+        # This is detected by comparing created_at vs updated_at
+        is_reindex = doc.created_at != doc.updated_at
+        if is_reindex:
+            deleted_count = await self.delete_document_chunks(doc.document_id)
+            logger.info(
+                f"Re-indexing document {doc.document_id}: deleted {deleted_count} old chunks"
+            )
 
         # Get chunker and create chunks based on document type
         if (

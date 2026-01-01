@@ -57,11 +57,19 @@ class EmbeddingStatus(str, Enum):
 
 @dataclass
 class Document:
-    """Document model."""
+    """Document model for llmemory indexing.
+
+    Uses the archive-protocol identity contract:
+    - owner_id = archive-protocol entity (e.g., jro, tsm, gsk)
+    - id_at_origin = archive-protocol document_id (stable origin identifier)
+
+    The (owner_id, id_at_origin) pair forms the natural key for idempotent
+    upsert behavior during re-indexing.
+    """
 
     document_id: UUID = field(default_factory=uuid4)
-    owner_id: str = ""  # Owner identifier for filtering (e.g., workspace_id)
-    id_at_origin: str = ""  # User ID, thread ID, or other origin identifier within owner
+    owner_id: str = ""  # Archive-protocol entity (e.g., jro, tsm, gsk)
+    id_at_origin: str = ""  # Archive-protocol document_id (stable origin identifier)
     document_type: DocumentType = DocumentType.UNKNOWN
     document_name: str = ""
     document_date: Optional[datetime] = None
@@ -157,9 +165,14 @@ class ChunkingConfig:
 
 @dataclass
 class SearchQuery:
-    """Search query model."""
+    """Search query model.
 
-    owner_id: str  # Required owner filter
+    Uses the archive-protocol identity contract for filtering:
+    - owner_id = archive-protocol entity (e.g., jro, tsm, gsk)
+    - id_at_origin = archive-protocol document_id (optional filter)
+    """
+
+    owner_id: str  # Archive-protocol entity (required filter)
     query_text: str
     search_type: SearchType = SearchType.HYBRID
     limit: int = 10
