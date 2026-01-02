@@ -8,7 +8,9 @@ and semantic search capabilities. Supports multi-tenant deployments through
 PostgreSQL schema isolation.
 """
 
+from .archive import ArchiveItem, ArchiveScanner
 from .config import LLMemoryConfig, get_config, set_config
+from .indexer import ArchiveIndexer, IndexResult
 from .exceptions import (
     ChunkingError,
     ConfigurationError,
@@ -49,6 +51,11 @@ __version__ = "0.4.0"
 __all__ = [
     # Main interface
     "LLMemory",
+    # Archive indexing
+    "ArchiveIndexer",
+    "ArchiveItem",
+    "ArchiveScanner",
+    "IndexResult",
     # Models
     "Document",
     "DocumentChunk",
