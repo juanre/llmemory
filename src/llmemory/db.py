@@ -50,7 +50,9 @@ async def create_memory_db_manager(
         command_timeout=60,
         max_queries=50000,
         max_inactive_connection_lifetime=300,
-        server_settings={"jit": "off"},  # Disable JIT for more predictable performance
+        # Disable JIT for more predictable performance and keep public visible
+        # for shared extensions like pgvector.
+        server_settings={"jit": "off", "search_path": f"{schema},public"},
     )
 
     # Use monitored version if requested
@@ -76,7 +78,7 @@ async def _ensure_pgvector_extension(db: AsyncDatabaseManager) -> None:
 
         if not result:
             # Enable pgvector extension (requires superuser privileges)
-            await db.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            await db.execute("CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public")
             logger.info("pgvector extension enabled successfully")
 
         # Verify vector operations actually work

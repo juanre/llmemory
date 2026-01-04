@@ -7,7 +7,7 @@ BEGIN
     PERFORM 1 FROM pg_extension WHERE extname = 'vector';
     IF NOT FOUND THEN
         BEGIN
-            EXECUTE 'CREATE EXTENSION IF NOT EXISTS vector';
+            EXECUTE 'CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public';
         EXCEPTION WHEN insufficient_privilege THEN
             RAISE NOTICE 'Skipping pgvector extension creation due to insufficient privileges';
         END;
