@@ -30,6 +30,84 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+def _strip_nuls(value: str) -> Tuple[str, int]:
+    if not value:
+        return value, 0
+    nul_count = value.count("\x00")
+    if nul_count == 0:
+        return value, 0
+    return value.replace("\x00", ""), nul_count
+
+
+def _sanitize_value(value: Any) -> Tuple[Any, int]:
+    if isinstance(value, str):
+        return _strip_nuls(value)
+    if isinstance(value, dict):
+        total = 0
+        sanitized = {}
+        for key, item in value.items():
+            cleaned_key = key
+            key_count = 0
+            if isinstance(key, str):
+                cleaned_key, key_count = _strip_nuls(key)
+            cleaned_item, item_count = _sanitize_value(item)
+            total += key_count + item_count
+            sanitized[cleaned_key] = cleaned_item
+        return sanitized, total
+    if isinstance(value, list):
+        total = 0
+        sanitized_list = []
+        for item in value:
+            cleaned_item, item_count = _sanitize_value(item)
+            total += item_count
+            sanitized_list.append(cleaned_item)
+        return sanitized_list, total
+    if isinstance(value, tuple):
+        total = 0
+        sanitized_items = []
+        for item in value:
+            cleaned_item, item_count = _sanitize_value(item)
+            total += item_count
+            sanitized_items.append(cleaned_item)
+        return tuple(sanitized_items), total
+    return value, 0
+
+
+def _sanitize_text(value: Optional[str], field_name: str) -> Optional[str]:
+    if value is None:
+        return None
+    cleaned_value, nul_count = _strip_nuls(value)
+    if nul_count:
+        logger.debug("Removed %s NUL bytes from %s", nul_count, field_name)
+    return cleaned_value
+
+
+def _sanitize_metadata(metadata: Optional[Dict[str, Any]], field_name: str) -> Dict[str, Any]:
+    if metadata is None:
+        return {}
+    cleaned_metadata, nul_count = _sanitize_value(metadata)
+    if nul_count:
+        logger.debug("Removed %s NUL bytes from %s", nul_count, field_name)
+    return cleaned_metadata
+
+
+def _sanitize_chunk(chunk: DocumentChunk, context: str) -> DocumentChunk:
+    cleaned_content, nul_count = _strip_nuls(chunk.content)
+    if nul_count:
+        logger.debug("Removed %s NUL bytes from %s content", nul_count, context)
+        chunk.content = cleaned_content
+        chunk.content_hash = hashlib.sha256(cleaned_content.encode()).hexdigest()
+    cleaned_metadata, metadata_nuls = _sanitize_value(chunk.metadata)
+    if metadata_nuls:
+        logger.debug("Removed %s NUL bytes from %s metadata", metadata_nuls, context)
+        chunk.metadata = cleaned_metadata
+    if chunk.summary:
+        cleaned_summary, summary_nuls = _strip_nuls(chunk.summary)
+        if summary_nuls:
+            logger.debug("Removed %s NUL bytes from %s summary", summary_nuls, context)
+            chunk.summary = cleaned_summary
+    return chunk
+
 
 class MemoryManager:
     """High-level async interface for document memory operations."""
@@ -159,13 +237,18 @@ class MemoryManager:
         Returns:
             Document instance (created or updated)
         """
+        owner_id = _sanitize_text(owner_id, "document owner_id") or ""
+        id_at_origin = _sanitize_text(id_at_origin, "document id_at_origin") or ""
+        document_name = _sanitize_text(document_name, "document name") or ""
+        metadata = _sanitize_metadata(metadata, "document metadata")
+
         doc = Document(
             owner_id=owner_id,
             id_at_origin=id_at_origin,
             document_name=document_name,
             document_type=document_type,
             document_date=document_date,
-            metadata=metadata or {},
+            metadata=metadata,
         )
 
         # Upsert: insert or update on conflict with (owner_id, id_at_origin)
@@ -263,6 +346,8 @@ class MemoryManager:
         Returns:
             Tuple of (Document, List[DocumentChunk])
         """
+        content = _sanitize_text(content, "document content") or ""
+
         # Detect and process language
         language_info = detect_and_process_language(content)
 
@@ -278,6 +363,7 @@ class MemoryManager:
                 "text_search_config": language_info["text_search_config"],
             }
         )
+        metadata = _sanitize_metadata(metadata, "document metadata")
 
         # Add or update document (upsert)
         doc = await self.add_document(
@@ -382,6 +468,8 @@ class MemoryManager:
         # Use provided connection or create new transaction
         if conn:
             for idx, (content, metadata) in enumerate(chunks):
+                content = _sanitize_text(content, "chunk content") or ""
+                metadata = _sanitize_metadata(metadata or {}, "chunk metadata")
                 chunk = await self._create_single_chunk(
                     conn,
                     document_id,
@@ -396,6 +484,8 @@ class MemoryManager:
         else:
             async with self.db.db_manager.transaction() as conn:
                 for idx, (content, metadata) in enumerate(chunks):
+                    content = _sanitize_text(content, "chunk content") or ""
+                    metadata = _sanitize_metadata(metadata or {}, "chunk metadata")
                     chunk = await self._create_single_chunk(
                         conn,
                         document_id,
@@ -518,6 +608,7 @@ class MemoryManager:
         self, conn: Any, chunk: DocumentChunk
     ) -> Optional[DocumentChunk]:
         """Store a single chunk with all its details."""
+        chunk = _sanitize_chunk(chunk, "chunk")
         # Check if chunk already exists for this document
         query = self.db.db_manager.prepare_query(
             "SELECT chunk_id FROM {{tables.document_chunks}} WHERE document_id = $1 AND content_hash = $2"

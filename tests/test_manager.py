@@ -1,5 +1,7 @@
 """Tests for the MemoryManager."""
 
+import json
+
 from datetime import datetime
 
 import pytest
@@ -60,6 +62,41 @@ class TestMemoryManager:
             assert chunk.content == chunks_data[i][0]
             assert chunk.metadata == chunks_data[i][1]
             assert chunk.document_id == doc.document_id
+
+    async def test_add_chunks_strips_nul_bytes(self, memory_manager):
+        """Ensure NUL bytes are stripped before chunks are stored."""
+        doc = await memory_manager.add_document(
+            owner_id="workspace_test",
+            id_at_origin="user123",
+            document_name="nul-test.txt",
+            document_type=DocumentType.TEXT,
+        )
+
+        chunks = await memory_manager.add_chunks(
+            document_id=doc.document_id,
+            chunks=[("Hello\x00World", {"note": "A\x00B"})],
+        )
+
+        assert chunks[0].content == "HelloWorld"
+        assert "\x00" not in chunks[0].content
+        assert chunks[0].metadata["note"] == "AB"
+
+        query = memory_manager.db.db_manager.prepare_query(
+            """
+        SELECT content, metadata
+        FROM {{tables.document_chunks}}
+        WHERE document_id = $1
+        ORDER BY chunk_index
+        LIMIT 1
+        """
+        )
+        row = await memory_manager.db.db_manager.fetch_one(query, str(doc.document_id))
+        assert row["content"] == "HelloWorld"
+        assert "\x00" not in row["content"]
+        metadata = row["metadata"]
+        if isinstance(metadata, str):
+            metadata = json.loads(metadata)
+        assert metadata["note"] == "AB"
 
     async def test_hierarchical_chunks(self, memory_manager):
         """Test adding hierarchical chunks."""
