@@ -162,4 +162,4 @@ skip_covered = false
 directory = "htmlcov"
 
 [tool.uv.sources]
-pgdbm = { path = "../pgdbm" }
+pgdbm = { path = "../pgdbm", editable = true }
