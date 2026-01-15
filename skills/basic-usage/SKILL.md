@@ -1,7 +1,7 @@
 ---
 name: basic-usage
 description: Use when getting started with llmemory document storage and search - covers installation, initialization, adding documents, vector search, hybrid search, semantic search, BM25 full-text search, document management, and building RAG systems with multi-tenant support
-version: 1.0.0
+version: 0.5.0
 ---
 
 # LLMemory Basic Usage
@@ -1678,21 +1678,15 @@ Configuration for a single embedding provider.
 
 ### ChunkingConfig
 
-Configuration for document chunking.
+Configuration for document chunking (in `config.py`).
 
 **Fields:**
-- `default_parent_size` (int, default: 1000): Parent chunk size in tokens
-- `default_child_size` (int, default: 200): Child chunk size in tokens
-- `default_overlap` (int, default: 50): Overlap between chunks in tokens
-- `min_chunk_size` (int, default: 50): Minimum chunk size
-- `max_chunk_size` (int, default: 2000): Maximum chunk size
-- `max_chunk_depth` (int, default: 3): Maximum hierarchy depth
-- `enable_chunk_summaries` (bool, default: False): Generate summaries
+- `enable_chunk_summaries` (bool, default: False): Generate summaries for chunks
 - `summary_max_tokens` (int, default: 120): Max tokens for summaries
-- `summary_prompt_template` (str): Template for summary generation
+- `min_chunk_size` (int, default: 50): Minimum chunk size in tokens
+- `max_chunk_size` (int, default: 2000): Maximum chunk size in tokens
 - `enable_contextual_retrieval` (bool, default: False): Prepend document context to chunks before embedding (Anthropic's approach)
-- `context_template` (str): Template for contextual retrieval format
-- `chunk_configs` (Dict[str, Dict[str, int]]): Document-type specific configs
+- `context_template` (str): Template for contextual retrieval format (default: "Document: {document_name}\nType: {document_type}\n\n{content}")
 
 **Contextual Retrieval Example:**
 ```python
@@ -1712,17 +1706,15 @@ await memory.add_document(
     id_at_origin="kb",
     document_name="Q3 Report",
     document_type=DocumentType.REPORT,
-    content="Revenue increased 15% QoQ...",
-    chunking_config=config.chunking
+    content="Revenue increased 15% QoQ..."
 )
 ```
 
 **Example:**
 ```python
 config = LLMemoryConfig()
-config.chunking.default_parent_size = 800
-config.chunking.default_child_size = 200
 config.chunking.enable_chunk_summaries = True
+config.chunking.summary_max_tokens = 100
 ```
 
 ### SearchConfig

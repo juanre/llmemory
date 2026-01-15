@@ -1,7 +1,7 @@
 ---
 name: hybrid-search
 description: Use when building search systems that need both semantic similarity and keyword matching - covers combining vector and BM25 search with Reciprocal Rank Fusion, alpha tuning for search weight control, and optimizing retrieval quality
-version: 1.0.0
+version: 0.5.0
 ---
 
 # LLMemory Hybrid Search

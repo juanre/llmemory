@@ -1,7 +1,7 @@
 ---
 name: rag
 description: Use when building Retrieval-Augmented Generation systems - covers document ingestion, hybrid search retrieval, reranking results, and prompt augmentation for accurate LLM responses grounded in your knowledge base
-version: 1.0.0
+version: 0.5.0
 ---
 
 # LLMemory RAG Systems
@@ -184,9 +184,9 @@ else:
 ### Step 1: Document Ingestion
 
 ```python
-from llmemory import LLMemory, DocumentType, ChunkingConfig
+from llmemory import LLMemory, DocumentType, ChunkingConfig, LLMemoryConfig
 
-async def ingest_knowledge_base(memory: LLMemory, owner_id: str):
+async def ingest_knowledge_base(owner_id: str):
     """Ingest documents into RAG system."""
 
     # Configure chunking for RAG (smaller chunks for precise retrieval)
@@ -195,11 +195,19 @@ async def ingest_knowledge_base(memory: LLMemory, owner_id: str):
         chunk_overlap=50,            # Overlap for context preservation
         strategy="hierarchical",     # Chunking strategy
         min_chunk_size=100,          # Minimum chunk size
-        max_chunk_size=500,          # Maximum chunk size
-        max_chunk_depth=3,           # Maximum hierarchy depth
-        enable_chunk_summaries=True, # Generate summaries
-        summary_max_tokens=80        # Max tokens for summaries
+        max_chunk_size=500           # Maximum chunk size
     )
+
+    # Enable chunk summaries via LLMemoryConfig
+    config = LLMemoryConfig()
+    config.chunking.enable_chunk_summaries = True
+    config.chunking.summary_max_tokens = 80
+
+    memory = LLMemory(
+        connection_string="postgresql://localhost/mydb",
+        config=config
+    )
+    await memory.initialize()
 
     documents = [
         {
@@ -938,7 +946,7 @@ async def main():
 ### 1. Chunk Size Optimization
 
 ```python
-from llmemory import ChunkingConfig
+from llmemory import ChunkingConfig, LLMemoryConfig
 
 # For RAG, use smaller chunks (better precision)
 chunking_config = ChunkingConfig(
@@ -946,11 +954,13 @@ chunking_config = ChunkingConfig(
     chunk_overlap=50,            # 50 tokens overlap
     strategy="hierarchical",     # Create parent/child chunks
     min_chunk_size=100,          # Minimum chunk size
-    max_chunk_size=500,          # Maximum chunk size
-    max_chunk_depth=3,           # Maximum hierarchy depth
-    enable_chunk_summaries=True, # Generate summaries for prompts
-    summary_max_tokens=80        # Short summaries
+    max_chunk_size=500           # Maximum chunk size
 )
+
+# Enable summaries via LLMemoryConfig (set when creating LLMemory)
+# config = LLMemoryConfig()
+# config.chunking.enable_chunk_summaries = True
+# config.chunking.summary_max_tokens = 80
 
 await memory.add_document(
     owner_id="workspace-1",
@@ -1079,13 +1089,24 @@ Chunk summaries provide concise representations of chunks, making prompts more e
 **Enabling Summaries:**
 
 ```python
-from llmemory import LLMemory, ChunkingConfig, LLMemoryConfig
+from llmemory import LLMemory, ChunkingConfig, LLMemoryConfig, DocumentType
 
-# Option 1: Via ChunkingConfig when adding documents
+# Enable summaries via LLMemoryConfig
+config = LLMemoryConfig()
+config.chunking.enable_chunk_summaries = True
+config.chunking.summary_max_tokens = 80  # Control summary length
+
+memory = LLMemory(
+    connection_string="postgresql://localhost/mydb",
+    config=config
+)
+await memory.initialize()
+
+# Use custom chunking config for chunk size settings
 chunking_config = ChunkingConfig(
     chunk_size=300,
-    enable_chunk_summaries=True,  # Enable summary generation
-    summary_max_tokens=80          # Control summary length
+    chunk_overlap=50,
+    strategy="hierarchical"
 )
 
 await memory.add_document(
@@ -1095,16 +1116,6 @@ await memory.add_document(
     document_type=DocumentType.MARKDOWN,
     content="...",
     chunking_config=chunking_config
-)
-
-# Option 2: Via global LLMemoryConfig
-config = LLMemoryConfig()
-config.chunking.enable_chunk_summaries = True
-config.chunking.summary_max_tokens = 50  # Short summaries
-
-memory = LLMemory(
-    connection_string="postgresql://localhost/mydb",
-    config=config
 )
 ```
 

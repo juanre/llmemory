@@ -1,7 +1,7 @@
 ---
 name: multi-tenant
 description: Use when building SaaS applications needing data isolation between customers - implements owner-based filtering for secure multi-tenant document storage and search with workspace, organization, or tenant-level separation
-version: 1.0.0
+version: 0.5.0
 ---
 
 # LLMemory Multi-Tenant Patterns
