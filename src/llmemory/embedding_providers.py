@@ -11,7 +11,10 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional, cast
+
+if TYPE_CHECKING:  # pragma: no cover
+    from openai import AsyncOpenAI
 
 from .config import EmbeddingProviderConfig, get_config
 from .exceptions import ConfigurationError, EmbeddingError, RateLimitError
@@ -22,7 +25,7 @@ logger = logging.getLogger(__name__)
 class EmbeddingProvider(ABC):
     """Abstract base class for embedding providers."""
 
-    def __init__(self, provider_id: str, config: EmbeddingProviderConfig):
+    def __init__(self, provider_id: str, config: EmbeddingProviderConfig) -> None:
         """Initialize embedding provider.
 
         Args:
@@ -35,8 +38,6 @@ class EmbeddingProvider(ABC):
 
     def _get_table_name(self) -> str:
         """Get the table name for this provider's embeddings."""
-        # Generate table name based on provider and dimension
-        suffix = f"{self.config.provider_type}_{self.config.dimension}"
         if self.config.provider_type == "openai":
             return "chunk_embeddings_openai"
         else:
@@ -58,7 +59,12 @@ class EmbeddingProvider(ABC):
         Raises:
             EmbeddingError: If embedding generation fails
         """
-        pass
+        raise NotImplementedError
+
+    async def generate_embedding(self, text: str) -> List[float]:
+        """Generate embedding for a single text."""
+        embeddings = await self.generate_embeddings([text])
+        return embeddings[0] if embeddings else []
 
     def get_dimension(self) -> int:
         """Get the dimension of embeddings produced by this provider."""
@@ -76,7 +82,7 @@ class EmbeddingProvider(ABC):
 class OpenAIEmbeddingProvider(EmbeddingProvider):
     """OpenAI embeddings provider using their API."""
 
-    def __init__(self, provider_id: str, config: EmbeddingProviderConfig):
+    def __init__(self, provider_id: str, config: EmbeddingProviderConfig) -> None:
         """Initialize OpenAI embedding provider."""
         super().__init__(provider_id, config)
 
@@ -95,11 +101,11 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
                     "Set LLMEMORY_OPENAI_API_KEY or OPENAI_API_KEY environment variable."
                 )
 
-        self._client = None
+        self._client: Optional[AsyncOpenAI] = None
         self._request_times: List[datetime] = []
         self._semaphore = asyncio.Semaphore(10)  # Max concurrent requests
 
-    def _ensure_client(self):
+    def _ensure_client(self) -> None:
         """Lazily initialize the OpenAI client."""
         if self._client is None:
             from openai import AsyncOpenAI
@@ -128,8 +134,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
 
     async def generate_embedding(self, text: str) -> List[float]:
         """Generate embedding for a single text."""
-        embeddings = await self.generate_embeddings([text])
-        return embeddings[0] if embeddings else []
+        return await super().generate_embedding(text)
 
     async def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings using OpenAI API."""
@@ -137,6 +142,8 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
             return []
 
         self._ensure_client()
+        if self._client is None:
+            raise RuntimeError("OpenAI client initialization failed")
         await self._check_rate_limit(len(texts))
 
         retry_count = 0
@@ -145,7 +152,8 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
                 try:
                     import openai
 
-                    response = await self._client.embeddings.create(
+                    client = self._client
+                    response = await client.embeddings.create(
                         model=self.config.model_name,
                         input=texts,
                         timeout=self.config.timeout,
@@ -168,7 +176,9 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
                     retry_count += 1
                     if retry_count >= self.config.max_retries:
                         logger.error(f"Rate limit exceeded after {self.config.max_retries} retries")
-                        raise RateLimitError(f"Rate limit exceeded: {str(e)}", retry_after=60.0)
+                        raise RateLimitError(
+                            f"Rate limit exceeded: {str(e)}", retry_after=60.0
+                        ) from e
 
                     wait_time = min(60 * retry_count, 300)  # Exponential backoff, max 5 min
                     logger.warning(
@@ -183,7 +193,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
                         f"Failed to connect to OpenAI API: {str(e)}",
                         provider="openai",
                         error_type="connection",
-                    )
+                    ) from e
 
                 except openai.AuthenticationError as e:
                     logger.error(f"Authentication error: {e}")
@@ -191,7 +201,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
                         f"OpenAI authentication failed: {str(e)}",
                         provider="openai",
                         error_type="authentication",
-                    )
+                    ) from e
 
                 except Exception as e:
                     logger.error(f"Unexpected error generating embeddings: {e}")
@@ -199,22 +209,28 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
                         f"Failed to generate embeddings: {str(e)}",
                         provider="openai",
                         error_type="unknown",
-                    )
+                    ) from e
+
+        raise EmbeddingError(
+            "Failed to generate embeddings after max retries",
+            provider="openai",
+            error_type="retry_exhausted",
+        )
 
 
 class LocalEmbeddingProvider(EmbeddingProvider):
     """Local embeddings provider using sentence-transformers."""
 
-    def __init__(self, provider_id: str, config: EmbeddingProviderConfig):
+    def __init__(self, provider_id: str, config: EmbeddingProviderConfig) -> None:
         """Initialize local embedding provider."""
         super().__init__(provider_id, config)
 
-        self._model = None
+        self._model: Any = None
         self._dependencies_loaded = False
-        self._sentence_transformers = None
-        self._torch = None
+        self._sentence_transformers: Any = None
+        self._torch: Any = None
 
-    def _ensure_dependencies(self):
+    def _ensure_dependencies(self) -> None:
         """Lazily load dependencies."""
         if not self._dependencies_loaded:
             try:
@@ -239,10 +255,12 @@ class LocalEmbeddingProvider(EmbeddingProvider):
                     "Install with: pip install sentence-transformers"
                 ) from e
 
-    def _ensure_model_loaded(self):
+    def _ensure_model_loaded(self) -> None:
         """Lazily load the model."""
         if self._model is None:
             self._ensure_dependencies()
+            if self._sentence_transformers is None:
+                raise RuntimeError("sentence-transformers dependency not loaded")
 
             logger.info(f"Loading local embedding model: {self.config.model_name}")
 
@@ -274,8 +292,7 @@ class LocalEmbeddingProvider(EmbeddingProvider):
 
     async def generate_embedding(self, text: str) -> List[float]:
         """Generate embedding for a single text."""
-        embeddings = await self.generate_embeddings([text])
-        return embeddings[0] if embeddings else []
+        return await super().generate_embedding(text)
 
     async def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings using local model."""
@@ -286,7 +303,7 @@ class LocalEmbeddingProvider(EmbeddingProvider):
 
         try:
             # Run in thread pool to avoid blocking
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             embeddings = await loop.run_in_executor(None, self._generate_sync, texts)
 
             return embeddings
@@ -297,10 +314,14 @@ class LocalEmbeddingProvider(EmbeddingProvider):
                 f"Failed to generate embeddings: {str(e)}",
                 provider="local",
                 error_type="generation",
-            )
+            ) from e
 
     def _generate_sync(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings synchronously."""
+        if self._torch is None:
+            raise RuntimeError("torch dependency not loaded")
+        if self._model is None:
+            raise RuntimeError("Local embedding model not loaded")
         with self._torch.no_grad():
             embeddings = self._model.encode(
                 texts,
@@ -310,7 +331,7 @@ class LocalEmbeddingProvider(EmbeddingProvider):
                 batch_size=self.config.batch_size,
             )
             # Convert to list of lists for compatibility
-            return embeddings.cpu().numpy().tolist()
+            return cast(List[List[float]], embeddings.cpu().numpy().tolist())
 
 
 class EmbeddingProviderFactory:

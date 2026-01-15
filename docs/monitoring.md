@@ -15,17 +15,17 @@ pip install "llmemory[monitoring]"
 When prometheus_client is installed, llmemory automatically exposes metrics from `search_optimizer.py`:
 
 **Search Metrics:**
-- `memory_search_requests_total` - Total search requests by type and owner
-- `memory_search_duration_seconds` - Search latency histogram
-- `memory_search_results_count` - Results returned per search
-- `memory_cache_hit_rate` - Cache effectiveness
-- `memory_active_searches` - Currently running searches
+- `llmemory_search_requests_total` - Total search requests by search type (label: `search_type`)
+- `llmemory_search_duration_seconds` - Search latency histogram (label: `search_type`)
+- `llmemory_search_results_count` - Results returned per search (label: `search_type`)
+- `llmemory_cache_hit_rate` - Cache effectiveness
+- `llmemory_active_searches` - Currently running searches
 
 **Performance Metrics:**
-- `memory_vector_similarity_scores` - Distribution of similarity scores
-- `memory_text_rank_scores` - Text search ranking distribution
-- `memory_query_embedding_seconds` - Embedding generation time
-- `memory_database_query_seconds` - Database query performance
+- `llmemory_vector_similarity_scores` - Distribution of similarity scores
+- `llmemory_text_rank_scores` - Text search ranking distribution
+- `llmemory_query_embedding_seconds` - Embedding generation time
+- `llmemory_database_query_seconds` - Database query performance (label: `query_type`)
 
 ### FastAPI Integration
 
@@ -69,9 +69,12 @@ metrics = await monitored_db.get_metrics()
 slow_queries = monitored_db.get_slow_queries()
 ```
 
-See [pgdbm monitoring documentation](https://github.com/yourusername/pgdbm#monitoring) for details.
+See [pgdbm monitoring documentation](https://github.com/juanre/pgdbm/blob/main/docs/api-reference.md#monitoring)
+for details.
 
 ## Health Checks
+
+For CPU/memory readings, install `psutil` (optional): `pip install psutil`.
 
 ### Basic Health Check
 

@@ -672,6 +672,7 @@ async def export_tenant_data(tenant_id: str, output_path: str):
             for doc in result.documents:
                 # Get document with chunks
                 doc_data = await memory.get_document(
+                    owner_id=tenant_id,
                     document_id=doc.document_id,
                     include_chunks=True
                 )

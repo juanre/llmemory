@@ -101,6 +101,7 @@ include_trailing_comma = true
 force_grid_wrap = 0
 use_parentheses = true
 ensure_newline_before_comments = true
+combine_as_imports = true
 
 [tool.mypy]
 python_version = "3.10"
@@ -140,6 +141,11 @@ ignore = [
     "E501",  # line too long, handled by black
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
+    "UP006",  # keep typing.List for now (large refactor otherwise)
+    "UP007",  # keep Union[...] annotations for now (large refactor otherwise)
+    "UP015",  # allow explicit open() mode for clarity
+    "UP035",  # keep typing.* imports for now (large refactor otherwise)
+    "UP045",  # keep Optional[X] style for now (large refactor otherwise)
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -147,6 +153,7 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["llmemory"]
+combine-as-imports = true
 
 [tool.coverage.run]
 branch = true
@@ -160,4 +167,3 @@ skip_covered = false
 
 [tool.coverage.html]
 directory = "htmlcov"
-

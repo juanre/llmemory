@@ -191,7 +191,7 @@ async def test_sota_contextual_retrieval(test_db_factory):
     doc_result = await memory.list_documents(owner_id="test", limit=1)
     doc_id = doc_result.documents[0].document_id
 
-    chunks = await memory.get_document_chunks(doc_id, limit=1)
+    chunks = await memory.get_document_chunks("test", doc_id, limit=1)
     assert chunks[0].metadata.get("contextualized") is True
 
     await memory.close()

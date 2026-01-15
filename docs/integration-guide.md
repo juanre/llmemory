@@ -73,13 +73,17 @@ llmemory uses pgdbm's migration system with automatic execution.
 
 **Manual Migration Control:**
 
-```python
-# Disable auto-migration
-memory = LLMemory(connection_string="...", run_migrations=False)
-await memory.initialize()
+Migrations are applied automatically during `initialize()` and are safe to run multiple times.
 
-# Run manually
-await memory._manager.db.apply_migrations()
+If you want to run migrations as a separate deployment step, apply them explicitly:
+
+```python
+from llmemory.db import MemoryDatabase, create_memory_db_manager
+
+db_manager = await create_memory_db_manager("postgresql://...", schema="llmemory")
+db = MemoryDatabase(db_manager)
+await db.apply_migrations()
+await db.close()
 ```
 
 **Migration File Location:**

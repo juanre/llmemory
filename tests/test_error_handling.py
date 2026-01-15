@@ -68,7 +68,7 @@ async def test_document_not_found_error(test_db_factory):
     await memory.initialize()
 
     with pytest.raises(DocumentNotFoundError):
-        await memory.get_document(document_id=UUID("00000000-0000-0000-0000-000000000000"))
+        await memory.get_document("test", UUID("00000000-0000-0000-0000-000000000000"))
 
     await memory.close()
 

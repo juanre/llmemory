@@ -9,7 +9,7 @@ import json
 import logging
 import time
 from datetime import datetime
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, cast
 from uuid import UUID
 
 from pgdbm import AsyncDatabaseManager
@@ -29,6 +29,7 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
+
 
 def _strip_nuls(value: str) -> Tuple[str, int]:
     if not value:
@@ -85,7 +86,8 @@ def _sanitize_text(value: Optional[str], field_name: str) -> Optional[str]:
 def _sanitize_metadata(metadata: Optional[Dict[str, Any]], field_name: str) -> Dict[str, Any]:
     if metadata is None:
         return {}
-    cleaned_metadata, nul_count = _sanitize_value(metadata)
+    cleaned_value, nul_count = _sanitize_value(metadata)
+    cleaned_metadata = cast(Dict[str, Any], cleaned_value)
     if nul_count:
         logger.debug("Removed %s NUL bytes from %s", nul_count, field_name)
     return cleaned_metadata
@@ -100,7 +102,7 @@ def _sanitize_chunk(chunk: DocumentChunk, context: str) -> DocumentChunk:
     cleaned_metadata, metadata_nuls = _sanitize_value(chunk.metadata)
     if metadata_nuls:
         logger.debug("Removed %s NUL bytes from %s metadata", metadata_nuls, context)
-        chunk.metadata = cleaned_metadata
+        chunk.metadata = cast(Dict[str, Any], cleaned_metadata)
     if chunk.summary:
         cleaned_summary, summary_nuls = _strip_nuls(chunk.summary)
         if summary_nuls:
@@ -148,7 +150,9 @@ class MemoryManager:
         self._initialized = True
 
     @classmethod
-    async def create(cls, connection_string: Optional[str] = None, **kwargs) -> "MemoryManager":
+    async def create(
+        cls, connection_string: Optional[str] = None, **kwargs: Any
+    ) -> "MemoryManager":
         """
         Create and initialize a new MemoryManager instance.
 
@@ -278,6 +282,9 @@ class MemoryManager:
             json.dumps(doc.metadata),
         )
 
+        if not result:
+            raise RuntimeError("Failed to insert or update document")
+
         # Use the returned document_id (may differ from doc.document_id if updated)
         doc.document_id = UUID(str(result["document_id"]))
         doc.created_at = result["created_at"]
@@ -390,22 +397,22 @@ class MemoryManager:
             and chunking_strategy == "hierarchical"
         ):
             # Use semantic chunker for email and chat
-            chunker = get_chunker("semantic", chunking_config)
+            semantic_chunker = get_chunker("semantic", chunking_config)
 
             if document_type == DocumentType.EMAIL:
-                chunks = chunker.chunk_email(text=content, document_id=str(doc.document_id))
+                chunks = semantic_chunker.chunk_email(text=content, document_id=doc.document_id)
             else:  # DocumentType.CHAT
-                chunks = chunker.chunk_chat(text=content, document_id=str(doc.document_id))
+                chunks = semantic_chunker.chunk_chat(text=content, document_id=doc.document_id)
 
             # Add base metadata to all chunks
             for chunk in chunks:
                 chunk.metadata.update(metadata or {})
         else:
             # Use specified chunker for other document types
-            chunker = get_chunker(chunking_strategy, chunking_config)
-            chunks = chunker.chunk_document(
+            selected_chunker = get_chunker(chunking_strategy, chunking_config)
+            chunks = selected_chunker.chunk_document(
                 text=content,
-                document_id=str(doc.document_id),
+                document_id=doc.document_id,
                 document_type=document_type,
                 base_metadata=metadata or {},
             )
@@ -645,6 +652,9 @@ class MemoryManager:
 
             chunk.created_at = result["created_at"]
             logger.debug(f"Added chunk {chunk.chunk_id} with {chunk.token_count} tokens")
+
+        # Always ensure the chunk has an embedding job queued so callers can process embeddings later.
+        await self._queue_embedding_job(chunk.chunk_id, conn=conn)
 
         return chunk
 
@@ -897,7 +907,7 @@ class MemoryManager:
         """
         ]
 
-        params = [query.query_text, query.owner_id]
+        params: List[Any] = [query.query_text, query.owner_id]
         param_count = 3
 
         if query.metadata_filter:
@@ -1056,10 +1066,15 @@ class MemoryManager:
         query = self.db.db_manager.prepare_query(
             """
         SELECT
-            eq.chunk_id, eq.provider_id, eq.status, eq.retry_count,
-            eq.created_at, c.content
+            eq.queue_id,
+            eq.chunk_id,
+            eq.provider_id,
+            eq.status,
+            eq.retry_count,
+            eq.error_message,
+            eq.created_at,
+            eq.processed_at
         FROM {{tables.embedding_queue}} eq
-        JOIN {{tables.document_chunks}} c ON eq.chunk_id = c.chunk_id
         WHERE eq.status = $1
         ORDER BY eq.created_at
         LIMIT $2
@@ -1070,8 +1085,8 @@ class MemoryManager:
 
         jobs = []
         for row in results:
-            # Use provider_id from the row instead of non-existent queue_id
             job = EmbeddingJob(
+                queue_id=UUID(str(row["queue_id"])),
                 chunk_id=UUID(str(row["chunk_id"])),
                 provider_id=row["provider_id"],
                 status=EmbeddingStatus(row["status"]),
@@ -1083,6 +1098,93 @@ class MemoryManager:
             jobs.append(job)
 
         return jobs
+
+    async def claim_pending_embeddings(
+        self, limit: int = 100, provider_id: Optional[str] = None
+    ) -> List[EmbeddingJob]:
+        """Atomically claim pending embedding jobs for processing.
+
+        Uses `FOR UPDATE SKIP LOCKED` to support concurrent workers.
+        """
+        status_pending = EmbeddingStatus.PENDING.value
+        status_processing = EmbeddingStatus.PROCESSING.value
+
+        provider_clause = ""
+        params: List[Any] = [status_pending]
+        param_idx = 2
+        if provider_id:
+            provider_clause = f"AND provider_id = ${param_idx}"
+            params.append(provider_id)
+            param_idx += 1
+
+        params.append(limit)
+
+        claim_query = f"""
+        WITH candidates AS (
+            SELECT queue_id
+            FROM {{{{tables.embedding_queue}}}}
+            WHERE status = $1
+            {provider_clause}
+            ORDER BY created_at
+            FOR UPDATE SKIP LOCKED
+            LIMIT ${param_idx}
+        )
+        UPDATE {{{{tables.embedding_queue}}}} eq
+        SET status = '{status_processing}'
+        FROM candidates
+        WHERE eq.queue_id = candidates.queue_id
+        RETURNING
+            eq.queue_id,
+            eq.chunk_id,
+            eq.provider_id,
+            eq.status,
+            eq.retry_count,
+            eq.error_message,
+            eq.created_at,
+            eq.processed_at
+        """
+
+        async with self.db.db_manager.transaction() as conn:
+            rows = await conn.fetch_all(claim_query, *params)
+
+        jobs: List[EmbeddingJob] = []
+        for row in rows:
+            jobs.append(
+                EmbeddingJob(
+                    queue_id=UUID(str(row["queue_id"])),
+                    chunk_id=UUID(str(row["chunk_id"])),
+                    provider_id=row["provider_id"],
+                    status=EmbeddingStatus(row["status"]),
+                    retry_count=int(row.get("retry_count", 0) or 0),
+                    error_message=row.get("error_message"),
+                    created_at=row["created_at"],
+                    processed_at=row.get("processed_at"),
+                )
+            )
+
+        return jobs
+
+    async def update_embedding_job_status(
+        self,
+        queue_id: UUID,
+        status: EmbeddingStatus,
+        *,
+        error_message: Optional[str] = None,
+        increment_retry: bool = False,
+    ) -> None:
+        """Update status for an embedding job by queue_id."""
+        retry_fragment = ", retry_count = retry_count + 1" if increment_retry else ""
+        query = f"""
+        UPDATE {{{{tables.embedding_queue}}}}
+        SET status = $1, error_message = $2, processed_at = NOW(){retry_fragment}
+        WHERE queue_id = $3
+        """
+        await self.db.db_manager.execute(
+            query,
+            status.value,
+            error_message,
+            str(queue_id),
+        )
 
     async def delete_document(self, document_id: UUID) -> None:
         """Delete a document and all its chunks."""
@@ -1121,7 +1223,9 @@ class MemoryManager:
             parent_chunk_id=parent_chunk_id,
             chunk_level=chunk_level,
         )
-        return chunks[0] if chunks else None
+        if not chunks:
+            raise RuntimeError("Failed to add chunk")
+        return chunks[0]
 
     async def get_document_chunks(self, document_id: UUID) -> List[DocumentChunk]:
         """

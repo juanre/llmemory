@@ -9,7 +9,7 @@ import math
 import re
 from contextlib import suppress
 from dataclasses import replace as dc_replace
-from typing import Awaitable, Callable, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Awaitable, Callable, List, Optional, Sequence, Tuple, cast
 
 from .config import SearchConfig
 from .models import SearchResult
@@ -18,15 +18,19 @@ logger = logging.getLogger(__name__)
 
 ScoreCallback = Callable[[str, Sequence[SearchResult]], Awaitable[Sequence[float]]]
 
+_SentenceCrossEncoder: Any = None
 try:  # Optional heavy dependency
-    from sentence_transformers import CrossEncoder as _SentenceCrossEncoder  # type: ignore
+    from sentence_transformers import CrossEncoder as _SentenceCrossEncoder
 except Exception:  # pragma: no cover - handled gracefully when dependency missing
-    _SentenceCrossEncoder = None  # type: ignore
+    pass
 
+AsyncOpenAI: Any = None
 try:
-    from openai import AsyncOpenAI
+    from openai import AsyncOpenAI as _AsyncOpenAI
 except Exception:  # pragma: no cover - handled gracefully
-    AsyncOpenAI = None  # type: ignore
+    pass
+else:
+    AsyncOpenAI = _AsyncOpenAI
 
 
 class RerankerService:
@@ -71,7 +75,7 @@ class RerankerService:
             rerank_scores = self._lexical_scores(query_text, candidates)
 
         scored_candidates: List[Tuple[float, SearchResult]] = []
-        for original_score, candidate in zip(rerank_scores, candidates):
+        for original_score, candidate in zip(rerank_scores, candidates, strict=True):
             rerank_score = float(original_score)
             # Incorporate prior score as a small tiebreaker
             tiebreaker = candidate.rrf_score or candidate.score or 0.0
@@ -169,8 +173,8 @@ class CrossEncoderReranker:
     def _predict_sync(self, pairs: List[Tuple[str, str]]) -> List[float]:
         predictions = self._model.predict(pairs, batch_size=self.batch_size)
         if hasattr(predictions, "tolist"):
-            return predictions.tolist()  # type: ignore[return-value]
-        return list(predictions)
+            return cast(List[float], predictions.tolist())
+        return [float(x) for x in predictions]
 
 
 class OpenAIResponsesReranker:
@@ -213,7 +217,8 @@ class OpenAIResponsesReranker:
             },
         }
 
-        response = await self._client.responses.create(
+        responses = cast(Any, self._client.responses)
+        response = await responses.create(
             model=self.model,
             temperature=self.temperature,
             input=[
@@ -226,7 +231,7 @@ class OpenAIResponsesReranker:
                 },
                 {"role": "user", "content": prompt},
             ],
-            response_format={"type": "json_schema", "json_schema": schema},
+            response_format=cast(Any, {"type": "json_schema", "json_schema": schema}),
         )
 
         scores = self._extract_scores(response)
@@ -256,12 +261,20 @@ class OpenAIResponsesReranker:
         )
         return "\n".join(lines)
 
-    def _extract_scores(self, response) -> List[float]:
+    def _extract_scores(self, response: Any) -> List[float]:
         import json
 
         try:
-            content = response.output[0].content[0].text  # type: ignore[attr-defined]
-            payload = json.loads(content)
+            output = getattr(response, "output", None)
+            if not output:
+                return []
+            content_blocks = getattr(output[0], "content", None)
+            if not content_blocks:
+                return []
+            text = getattr(content_blocks[0], "text", None)
+            if not isinstance(text, str):
+                return []
+            payload = json.loads(text)
             return [float(x) for x in payload.get("scores", [])]
         except Exception as exc:  # pragma: no cover
             logger.error("Failed to parse OpenAI reranker output: %s", exc)

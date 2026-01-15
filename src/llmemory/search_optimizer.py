@@ -14,7 +14,6 @@ import asyncio
 import hashlib
 import json
 import logging
-import re
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -35,7 +34,7 @@ try:
     search_requests_total = Counter(
         "llmemory_search_requests_total",
         "Total number of search requests",
-        ["search_type", "owner_id"],
+        ["search_type"],
     )
 
     search_duration_seconds = Histogram(
@@ -166,7 +165,7 @@ class OptimizedAsyncSearch:
         self.hnsw_ef_search = hnsw_ef_search
 
         # In-memory cache (replace with Redis in production)
-        self._cache: Dict[str, Tuple[List[Dict], datetime]] = {}
+        self._cache: Dict[str, Tuple[List[Dict[str, Any]], datetime]] = {}
         self._cache_lock = asyncio.Lock()
 
         # Query semaphore for concurrency control
@@ -190,21 +189,20 @@ class OptimizedAsyncSearch:
         # Increment active searches gauge
         if METRICS_ENABLED:
             active_searches.inc()
-            search_requests_total.labels(
-                search_type=query.search_type.value, owner_id=query.owner_id
-            ).inc()
+            search_requests_total.labels(search_type=query.search_type.value).inc()
 
         try:
             # Check cache first
             cache_key = self._get_cache_key(query)
             cached_results = await self._get_cached_results(cache_key)
 
-            cache_hit = cached_results is not None
-
-            if cache_hit:
+            results: List[Dict[str, Any]]
+            if cached_results is not None:
+                cache_hit = True
                 self.metrics.cache_hits += 1
                 results = cached_results
             else:
+                cache_hit = False
                 self.metrics.cache_misses += 1
 
                 # Perform search with concurrency control
@@ -267,7 +265,10 @@ class OptimizedAsyncSearch:
         )
         if not row:
             return None
-        return row["table_name"]  # type: ignore[index]
+        table_name = row.get("table_name")
+        if table_name is None:
+            return None
+        return str(table_name)
 
     async def _optimized_vector_search(self, query: SearchQuery) -> List[Dict[str, Any]]:
         """
@@ -511,33 +512,33 @@ class OptimizedAsyncSearch:
         k = 60  # RRF constant
 
         # Use dictionaries for O(1) lookups
-        chunk_data = {}
-        rrf_scores = {}
+        chunk_data: Dict[str, Dict[str, Any]] = {}
+        rrf_scores: Dict[str, float] = {}
 
         # Process vector results
         for i, result in enumerate(vector_results[: limit * 2]):
-            chunk_id = result["chunk_id"]
+            chunk_id = str(result["chunk_id"])
             vector_score = alpha / (k + i + 1)
 
             if chunk_id not in chunk_data:
                 chunk_data[chunk_id] = result
 
-            rrf_scores[chunk_id] = rrf_scores.get(chunk_id, 0) + vector_score
+            rrf_scores[chunk_id] = rrf_scores.get(chunk_id, 0.0) + vector_score
 
         # Process text results
         for i, result in enumerate(text_results[: limit * 2]):
-            chunk_id = result["chunk_id"]
+            chunk_id = str(result["chunk_id"])
             text_score = (1 - alpha) / (k + i + 1)
 
             if chunk_id not in chunk_data:
                 chunk_data[chunk_id] = result
 
-            rrf_scores[chunk_id] = rrf_scores.get(chunk_id, 0) + text_score
+            rrf_scores[chunk_id] = rrf_scores.get(chunk_id, 0.0) + text_score
 
         # Get top results efficiently
         top_chunks = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)[:limit]
 
-        results = []
+        results: List[Dict[str, Any]] = []
         for chunk_id, score in top_chunks:
             result = chunk_data[chunk_id].copy()
             result["rrf_score"] = score
@@ -715,7 +716,7 @@ class OptimizedAsyncSearch:
         )
         return cache_key.to_hash()
 
-    async def _get_cached_results(self, cache_key: str) -> Optional[List[Dict]]:
+    async def _get_cached_results(self, cache_key: str) -> Optional[List[Dict[str, Any]]]:
         """Get cached results if available and not expired."""
         async with self._cache_lock:
             if cache_key in self._cache:
@@ -727,7 +728,7 @@ class OptimizedAsyncSearch:
                     del self._cache[cache_key]
         return None
 
-    async def _cache_results(self, cache_key: str, results: List[Dict]) -> None:
+    async def _cache_results(self, cache_key: str, results: List[Dict[str, Any]]) -> None:
         """Cache search results."""
         async with self._cache_lock:
             self._cache[cache_key] = (results, datetime.now())

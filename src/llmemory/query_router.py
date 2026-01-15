@@ -33,7 +33,7 @@ class RouteDecision:
 class QueryRouter:
     """Routes queries based on answerability from available documents."""
 
-    def __init__(self, openai_api_key: str, model: str = "gpt-4o-mini"):
+    def __init__(self, openai_api_key: str, model: str = "gpt-4o-mini") -> None:
         self.api_key = openai_api_key
         self.model = model
 
@@ -94,7 +94,10 @@ Respond with JSON:
 
             import json
 
-            result = json.loads(response.choices[0].message.content)
+            content = response.choices[0].message.content
+            if not content:
+                raise ValueError("Query router returned empty response")
+            result = json.loads(content)
 
             route_type = RouteType(result["route"].lower())
             confidence = float(result["confidence"])

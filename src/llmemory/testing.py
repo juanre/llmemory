@@ -8,7 +8,7 @@ of the llmemory package for their own testing needs.
 """
 
 import os
-from typing import Any, AsyncGenerator, Dict
+from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, List
 
 import pytest
 import pytest_asyncio
@@ -28,7 +28,7 @@ load_dotenv()
 
 
 @pytest_asyncio.fixture
-async def memory_db(test_db_factory) -> AsyncGenerator[MemoryDatabase, None]:
+async def memory_db(test_db_factory: Any) -> AsyncGenerator[MemoryDatabase, None]:
     """Create a MemoryDatabase instance with test database.
 
     Args:
@@ -77,7 +77,7 @@ async def memory_manager(
 
 
 @pytest_asyncio.fixture
-async def openai_client():
+async def openai_client() -> AsyncOpenAI:
     """Create async OpenAI client using API key from environment.
 
     Skips test if OPENAI_API_KEY is not found.
@@ -92,7 +92,7 @@ async def openai_client():
 
 
 @pytest_asyncio.fixture
-async def sample_embeddings(openai_client):
+async def sample_embeddings(openai_client: AsyncOpenAI) -> Dict[str, List[float]]:
     """Generate real embeddings using OpenAI for testing.
 
     Args:
@@ -117,7 +117,9 @@ async def sample_embeddings(openai_client):
 
 
 @pytest_asyncio.fixture
-async def create_embedding(openai_client):
+async def create_embedding(
+    openai_client: AsyncOpenAI,
+) -> Callable[[str], Awaitable[List[float]]]:
     """Factory fixture to create embeddings for any text.
 
     Args:
@@ -127,7 +129,7 @@ async def create_embedding(openai_client):
         callable: Async function that generates embeddings
     """
 
-    async def _create_embedding(text: str):
+    async def _create_embedding(text: str) -> List[float]:
         response = await openai_client.embeddings.create(model="text-embedding-3-small", input=text)
         return response.data[0].embedding
 
@@ -138,7 +140,7 @@ async def create_embedding(openai_client):
 
 
 @pytest_asyncio.fixture
-async def memory_library(test_db_factory) -> AsyncGenerator[LLMemory, None]:
+async def memory_library(test_db_factory: Any) -> AsyncGenerator[LLMemory, None]:
     """Create LLMemory instance for testing.
 
     Args:
@@ -168,7 +170,7 @@ async def memory_library(test_db_factory) -> AsyncGenerator[LLMemory, None]:
 
 @pytest_asyncio.fixture
 async def memory_library_with_embeddings(
-    memory_library,
+    memory_library: LLMemory,
 ) -> AsyncGenerator[LLMemory, None]:
     """Create LLMemory instance with pre-populated documents and embeddings.
 
@@ -181,7 +183,7 @@ async def memory_library_with_embeddings(
     memory = memory_library
 
     # Add sample documents with content that will get embeddings
-    test_documents = [
+    test_documents: List[Dict[str, Any]] = [
         {
             "owner_id": "test_workspace",
             "id_at_origin": "doc1",
@@ -209,21 +211,29 @@ async def memory_library_with_embeddings(
     # Since generate_embeddings=True only queues them, we'll generate them manually
     for doc_data in test_documents:
         result = await memory.add_document(
-            **doc_data, generate_embeddings=False  # We'll do it manually for testing
+            owner_id=str(doc_data["owner_id"]),
+            id_at_origin=str(doc_data["id_at_origin"]),
+            document_name=str(doc_data["document_name"]),
+            document_type=doc_data["document_type"],
+            content=str(doc_data["content"]),
+            generate_embeddings=False,  # We'll do it manually for testing
         )
         doc = result.document  # Extract document from result
 
         # Manually generate and store embeddings for immediate availability in tests
 
         embedding_generator = await memory._get_embedding_generator()
-        embeddings = await embedding_generator.generate_embeddings([doc_data["content"]])
+        manager = await memory._ensure_initialized()
 
         # Get the chunks that were created
-        chunks = await memory._manager.db.get_document_chunks(str(doc.document_id))
+        chunks = await manager.db.get_document_chunks(str(doc.document_id))
+
+        texts = [chunk["content"] for chunk in chunks]
+        embeddings = await embedding_generator.generate_embeddings(texts)
 
         # Store embeddings for each chunk
-        for chunk, embedding in zip(chunks, embeddings):
-            await memory._manager.db.insert_chunk_embedding(chunk["chunk_id"], embedding)
+        for chunk, embedding in zip(chunks, embeddings, strict=True):
+            await manager.db.insert_chunk_embedding(chunk["chunk_id"], embedding)
 
     yield memory
 

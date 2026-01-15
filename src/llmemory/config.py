@@ -253,35 +253,35 @@ class LLMemoryConfig:
             config.enable_metrics = False
 
         if (
-            val := env_bool("LLMEMORY_ENABLE_QUERY_EXPANSION", "AWORD_ENABLE_QUERY_EXPANSION")
+            bool_val := env_bool("LLMEMORY_ENABLE_QUERY_EXPANSION", "AWORD_ENABLE_QUERY_EXPANSION")
         ) is not None:
-            config.search.enable_query_expansion = val
+            config.search.enable_query_expansion = bool_val
 
-        if (val := env_bool("LLMEMORY_ENABLE_RERANK", "AWORD_ENABLE_RERANK")) is not None:
-            config.search.enable_rerank = val
+        if (bool_val := env_bool("LLMEMORY_ENABLE_RERANK", "AWORD_ENABLE_RERANK")) is not None:
+            config.search.enable_rerank = bool_val
 
-        if val := env_var("LLMEMORY_RERANK_TOP_K", "AWORD_RERANK_TOP_K"):
-            config.search.rerank_top_k = int(val)
+        if str_val := env_var("LLMEMORY_RERANK_TOP_K", "AWORD_RERANK_TOP_K"):
+            config.search.rerank_top_k = int(str_val)
 
-        if val := env_var("LLMEMORY_RERANK_RETURN_K", "AWORD_RERANK_RETURN_K"):
-            config.search.rerank_return_k = int(val)
+        if str_val := env_var("LLMEMORY_RERANK_RETURN_K", "AWORD_RERANK_RETURN_K"):
+            config.search.rerank_return_k = int(str_val)
 
-        if val := env_var("LLMEMORY_RERANK_MODEL", "AWORD_RERANK_MODEL"):
-            config.search.default_rerank_model = val
+        if str_val := env_var("LLMEMORY_RERANK_MODEL", "AWORD_RERANK_MODEL"):
+            config.search.default_rerank_model = str_val
 
-        if val := env_var("LLMEMORY_RERANK_PROVIDER", "AWORD_RERANK_PROVIDER"):
-            config.search.rerank_provider = val
+        if str_val := env_var("LLMEMORY_RERANK_PROVIDER", "AWORD_RERANK_PROVIDER"):
+            config.search.rerank_provider = str_val
 
-        if val := env_var("LLMEMORY_RERANK_DEVICE", "AWORD_RERANK_DEVICE"):
-            config.search.rerank_device = val
+        if str_val := env_var("LLMEMORY_RERANK_DEVICE", "AWORD_RERANK_DEVICE"):
+            config.search.rerank_device = str_val
 
-        if val := env_var("LLMEMORY_RERANK_BATCH_SIZE", "AWORD_RERANK_BATCH_SIZE"):
-            config.search.rerank_batch_size = int(val)
+        if str_val := env_var("LLMEMORY_RERANK_BATCH_SIZE", "AWORD_RERANK_BATCH_SIZE"):
+            config.search.rerank_batch_size = int(str_val)
 
         if (
-            val := env_bool("LLMEMORY_ENABLE_CHUNK_SUMMARIES", "AWORD_ENABLE_CHUNK_SUMMARIES")
+            bool_val := env_bool("LLMEMORY_ENABLE_CHUNK_SUMMARIES", "AWORD_ENABLE_CHUNK_SUMMARIES")
         ) is not None:
-            config.chunking.enable_chunk_summaries = val
+            config.chunking.enable_chunk_summaries = bool_val
 
         if profile := env_var("LLMEMORY_HNSW_PROFILE", "AWORD_HNSW_PROFILE"):
             config.search.hnsw_profile = profile

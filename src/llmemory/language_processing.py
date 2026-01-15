@@ -14,7 +14,7 @@ from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
 try:
-    from fast_langdetect import detect, detect_multilingual
+    from fast_langdetect import detect
 
     LANGDETECT_AVAILABLE = True
 except ImportError:
@@ -106,7 +106,7 @@ class MultilingualProcessor:
         Language.POLISH: LanguageConfig(text_search_config="simple"),
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the multilingual processor."""
         self.configs = self.LANGUAGE_CONFIGS
 
@@ -168,17 +168,17 @@ class MultilingualProcessor:
                 )
             ]
 
-        segments = []
+        segments: List[LanguageSegment] = []
 
         try:
             # Split by common boundaries
             sentences = self._split_sentences(text)
 
-            current_segment = []
-            current_lang = None
+            current_segment: List[str] = []
+            current_lang: Optional[str] = None
             current_start = 0
 
-            for i, sentence in enumerate(sentences):
+            for _i, sentence in enumerate(sentences):
                 if len(sentence.strip()) < 10:
                     # Too short to detect
                     if current_segment:
@@ -350,9 +350,15 @@ class MultilingualProcessor:
         Returns:
             PostgreSQL text search config name
         """
-        if language in self.configs:
-            return self.configs[language].text_search_config
-        return "simple"  # Default fallback
+        try:
+            lang = Language(language)
+        except ValueError:
+            return "simple"
+
+        config = self.configs.get(lang)
+        if not config:
+            return "simple"
+        return config.text_search_config
 
     def process_multilingual_document(self, text: str) -> Dict:
         """
@@ -369,7 +375,7 @@ class MultilingualProcessor:
 
         # Check for multilingual content
         segments = self.detect_language_segments(text)
-        is_multilingual = len(set(seg.language for seg in segments)) > 1
+        is_multilingual = len({seg.language for seg in segments}) > 1
 
         # Process each segment
         processed_segments = []
@@ -390,7 +396,7 @@ class MultilingualProcessor:
             "primary_confidence": confidence,
             "is_multilingual": is_multilingual,
             "segments": processed_segments,
-            "languages": list(set(seg.language for seg in segments)),
+            "languages": list({seg.language for seg in segments}),
             "text_search_config": self.get_text_search_config(primary_lang),
         }
 

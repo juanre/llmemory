@@ -69,7 +69,7 @@ class ArchiveScanner:
         Returns:
             List of entity names (e.g., ['jro', 'tsm', 'gsk'])
         """
-        entities = []
+        entities: list[str] = []
         if not self.archive_path.exists():
             return entities
 

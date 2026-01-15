@@ -29,7 +29,7 @@ async def test_contextual_retrieval_prepends_document_context(test_db_factory):
     )
 
     # Get chunks and check they have contextualized content
-    chunks = await memory.get_document_chunks(result.document.document_id)
+    chunks = await memory.get_document_chunks("test", result.document.document_id)
 
     # First chunk should have document context prepended to embedding metadata
     assert chunks[0].metadata.get("contextualized") is True

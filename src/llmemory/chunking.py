@@ -5,7 +5,8 @@
 
 import re
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional, Union, overload
+from uuid import UUID
 
 import tiktoken
 
@@ -25,10 +26,18 @@ class ChunkMetadata:
     parent_context: Optional[str] = None
 
 
+@dataclass
+class ChatMessage:
+    timestamp: Optional[str]
+    user: Optional[str]
+    content: List[str]
+    message_type: str = "message"
+
+
 class HierarchicalChunker:
     """Implements hierarchical chunking with parent-child relationships."""
 
-    def __init__(self, config: Optional[ChunkingConfig] = None):
+    def __init__(self, config: Optional[ChunkingConfig] = None) -> None:
         """
         Initialize the chunker with configuration.
 
@@ -42,14 +51,14 @@ class HierarchicalChunker:
         except Exception as e:
             raise ChunkingError(
                 f"Failed to initialize tokenizer: {str(e)}", strategy="hierarchical"
-            )
+            ) from e
 
     def chunk_document(
         self,
         text: str,
-        document_id: str,
+        document_id: UUID,
         document_type: DocumentType,
-        base_metadata: Optional[Dict] = None,
+        base_metadata: Optional[Dict[str, Any]] = None,
     ) -> List[DocumentChunk]:
         """
         Create hierarchical chunks with parent-child relationships.
@@ -134,7 +143,7 @@ class HierarchicalChunker:
 
         return chunks
 
-    def _create_chunks(self, text: str, size: int, overlap: int) -> List[Dict]:
+    def _create_chunks(self, text: str, size: int, overlap: int) -> List[Dict[str, Any]]:
         """
         Create chunks with specified size and overlap.
 
@@ -147,7 +156,7 @@ class HierarchicalChunker:
             List of chunk data dictionaries
         """
         tokens = self.tokenizer.encode(text)
-        chunks = []
+        chunks: List[Dict[str, Any]] = []
 
         if len(tokens) <= size:
             # Text fits in a single chunk
@@ -226,7 +235,7 @@ class HierarchicalChunker:
 
         return text
 
-    def _get_chunk_config(self, doc_type: DocumentType, content_length: int) -> Dict:
+    def _get_chunk_config(self, doc_type: DocumentType, content_length: int) -> Dict[str, int]:
         """
         Get optimal chunking parameters based on document type and length.
 
@@ -359,11 +368,45 @@ class HierarchicalChunker:
 class SemanticChunker:
     """Implements semantic chunking based on content structure."""
 
-    def __init__(self, config: Optional[ChunkingConfig] = None):
+    def __init__(self, config: Optional[ChunkingConfig] = None) -> None:
         self.config = config or ChunkingConfig()
         self.tokenizer = tiktoken.encoding_for_model("text-embedding-3-small")
 
-    def chunk_markdown(self, text: str, document_id: str) -> List[DocumentChunk]:
+    def chunk_document(
+        self,
+        text: str,
+        document_id: UUID,
+        document_type: DocumentType,
+        base_metadata: Optional[Dict[str, Any]] = None,
+    ) -> List[DocumentChunk]:
+        """Chunk a document using semantic-aware structure when possible."""
+        if document_type == DocumentType.MARKDOWN:
+            chunks = self.chunk_markdown(text=text, document_id=document_id)
+        elif document_type == DocumentType.EMAIL:
+            chunks = self.chunk_email(text=text, document_id=document_id)
+        elif document_type == DocumentType.CHAT:
+            chunks = self.chunk_chat(text=text, document_id=document_id)
+        else:
+            chunks = []
+            base_metadata = base_metadata or {}
+            for idx, chunk_text in enumerate(self._create_text_chunks(text, max_tokens=300)):
+                chunks.append(
+                    DocumentChunk(
+                        document_id=document_id,
+                        chunk_index=idx,
+                        chunk_level=0,
+                        content=chunk_text,
+                        token_count=len(self.tokenizer.encode(chunk_text)),
+                        metadata={"chunk_type": "text", **base_metadata},
+                    )
+                )
+
+        if base_metadata:
+            for chunk in chunks:
+                chunk.metadata.update(base_metadata)
+        return chunks
+
+    def chunk_markdown(self, text: str, document_id: UUID) -> List[DocumentChunk]:
         """
         Chunk markdown based on semantic structure (headers, sections).
 
@@ -374,36 +417,34 @@ class SemanticChunker:
         Returns:
             List of DocumentChunk objects
         """
-        chunks = []
+        chunks: List[DocumentChunk] = []
 
         # Split by headers
         header_pattern = r"^(#{1,6})\s+(.+)$"
-        sections = []
-        current_section = []
+        sections: List[tuple[int, str]] = []
+        current_section_lines: List[str] = []
         current_level = 0
 
         for line in text.split("\n"):
             header_match = re.match(header_pattern, line)
             if header_match:
                 # Save previous section
-                if current_section:
-                    sections.append({"level": current_level, "content": "\n".join(current_section)})
+                if current_section_lines:
+                    sections.append((current_level, "\n".join(current_section_lines)))
 
                 # Start new section
                 current_level = len(header_match.group(1))
-                current_section = [line]
+                current_section_lines = [line]
             else:
-                current_section.append(line)
+                current_section_lines.append(line)
 
         # Add final section
-        if current_section:
-            sections.append({"level": current_level, "content": "\n".join(current_section)})
+        if current_section_lines:
+            sections.append((current_level, "\n".join(current_section_lines)))
 
         # Create hierarchical chunks from sections
-        parent_chunk = None
-        for idx, section in enumerate(sections):
-            content = section["content"]
-            level = section["level"]
+        parent_chunk: Optional[DocumentChunk] = None
+        for idx, (level, content) in enumerate(sections):
 
             # Create chunk
             chunk = DocumentChunk(
@@ -426,7 +467,10 @@ class SemanticChunker:
         return chunks
 
     def chunk_code(
-        self, text: str, document_id: str, language: Optional[str] = None
+        self,
+        text: str,
+        document_id: UUID,
+        language: Optional[str] = None,
     ) -> List[DocumentChunk]:
         """
         Chunk code based on semantic structure (functions, classes).
@@ -439,7 +483,7 @@ class SemanticChunker:
         Returns:
             List of DocumentChunk objects
         """
-        chunks = []
+        chunks: List[DocumentChunk] = []
 
         # Simple heuristic for now - can be enhanced with language-specific parsing
         # Look for function/class definitions
@@ -447,11 +491,11 @@ class SemanticChunker:
         class_pattern = r"^(?:class|struct|interface)\s+(\w+)"
 
         lines = text.split("\n")
-        current_chunk = []
-        current_type = None
+        current_chunk: List[str] = []
+        current_type: Optional[str] = None
         chunk_idx = 0
 
-        for i, line in enumerate(lines):
+        for _i, line in enumerate(lines):
             if re.match(function_pattern, line) or re.match(class_pattern, line):
                 # Save previous chunk
                 if current_chunk:
@@ -491,7 +535,7 @@ class SemanticChunker:
 
         return chunks
 
-    def chunk_email(self, text: str, document_id: str) -> List[DocumentChunk]:
+    def chunk_email(self, text: str, document_id: UUID) -> List[DocumentChunk]:
         """
         Chunk email based on email structure (headers, body, signatures).
 
@@ -502,20 +546,25 @@ class SemanticChunker:
         Returns:
             List of DocumentChunk objects
         """
-        chunks = []
+        chunks: List[DocumentChunk] = []
 
         # Email patterns
         header_pattern = r"^(From|To|Subject|Date|Cc|Bcc):\s*(.+)$"
         reply_pattern = r"^On .+ wrote:$"
         signature_pattern = r"^(--|Best regards|Sincerely|Thanks)"
 
-        sections = {"headers": [], "body": [], "quoted": [], "signature": []}
+        sections: Dict[str, List[str]] = {
+            "headers": [],
+            "body": [],
+            "quoted": [],
+            "signature": [],
+        }
 
         current_section = "headers"
         in_headers = True
 
         lines = text.split("\n")
-        for i, line in enumerate(lines):
+        for _i, line in enumerate(lines):
             # Check for headers
             if in_headers and re.match(header_pattern, line):
                 sections["headers"].append(line)
@@ -606,7 +655,7 @@ class SemanticChunker:
 
         return chunks
 
-    def chunk_chat(self, text: str, document_id: str) -> List[DocumentChunk]:
+    def chunk_chat(self, text: str, document_id: UUID) -> List[DocumentChunk]:
         """
         Chunk chat/conversation based on messages and turns.
 
@@ -617,20 +666,15 @@ class SemanticChunker:
         Returns:
             List of DocumentChunk objects
         """
-        chunks = []
+        chunks: List[DocumentChunk] = []
 
         # Common chat patterns
         timestamp_pattern = r"^\[?(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AP]M)?)\]?\s*"
         username_pattern = r"^([^:]+):\s*"
         system_msg_pattern = r"^\*\*\*\s*(.+)\s*\*\*\*$"
 
-        messages = []
-        current_message = {
-            "timestamp": None,
-            "user": None,
-            "content": [],
-            "type": "message",
-        }
+        messages: List[ChatMessage] = []
+        current_message = ChatMessage(timestamp=None, user=None, content=[], message_type="message")
 
         lines = text.split("\n")
         for line in lines:
@@ -638,51 +682,51 @@ class SemanticChunker:
             timestamp_match = re.match(timestamp_pattern, line)
             if timestamp_match:
                 line = line[timestamp_match.end() :]
-                current_message["timestamp"] = timestamp_match.group(1)
+                current_message.timestamp = timestamp_match.group(1)
 
             # Check for username
             username_match = re.match(username_pattern, line)
             if username_match:
                 # Save previous message if exists
-                if current_message["content"]:
+                if current_message.content:
                     messages.append(current_message)
-                    current_message = {
-                        "timestamp": current_message.get("timestamp"),
-                        "user": None,
-                        "content": [],
-                        "type": "message",
-                    }
+                    current_message = ChatMessage(
+                        timestamp=current_message.timestamp,
+                        user=None,
+                        content=[],
+                        message_type="message",
+                    )
 
-                current_message["user"] = username_match.group(1)
+                current_message.user = username_match.group(1)
                 line = line[username_match.end() :]
 
             # Check for system message
             if re.match(system_msg_pattern, line):
-                current_message["type"] = "system"
+                current_message.message_type = "system"
 
             # Add content
             if line.strip():
-                current_message["content"].append(line.strip())
+                current_message.content.append(line.strip())
 
         # Add last message
-        if current_message["content"]:
+        if current_message.content:
             messages.append(current_message)
 
         # Create chunks from messages
         for idx, msg in enumerate(messages):
-            content = "\n".join(msg["content"])
+            content = "\n".join(msg.content)
 
             # Create metadata
             metadata = {
                 "chunk_type": "chat_message",
-                "message_type": msg["type"],
+                "message_type": msg.message_type,
                 "message_index": idx,
             }
 
-            if msg["user"]:
-                metadata["user"] = msg["user"]
-            if msg["timestamp"]:
-                metadata["timestamp"] = msg["timestamp"]
+            if msg.user:
+                metadata["user"] = msg.user
+            if msg.timestamp:
+                metadata["timestamp"] = msg.timestamp
 
             chunk = DocumentChunk(
                 document_id=document_id,
@@ -698,15 +742,12 @@ class SemanticChunker:
         if len(chunks) > 10:
             # Create parent chunks for conversation turns
             turn_size = 5  # Group 5 messages per turn
-            parent_chunks = []
+            parent_chunks: List[DocumentChunk] = []
 
             for i in range(0, len(messages), turn_size):
                 turn_messages = messages[i : i + turn_size]
                 turn_content = "\n".join(
-                    [
-                        f"{msg.get('user', 'System')}: {' '.join(msg['content'])}"
-                        for msg in turn_messages
-                    ]
+                    [f"{(msg.user or 'System')}: {' '.join(msg.content)}" for msg in turn_messages]
                 )
 
                 parent_chunk = DocumentChunk(
@@ -747,8 +788,8 @@ class SemanticChunker:
         if len(tokens) <= max_tokens:
             return [text]
 
-        chunks = []
-        current_chunk = []
+        chunks: List[str] = []
+        current_chunk: List[str] = []
         current_count = 0
 
         sentences = text.split(". ")
@@ -771,7 +812,30 @@ class SemanticChunker:
         return chunks
 
 
-def get_chunker(strategy: str = "hierarchical", config: Optional[ChunkingConfig] = None):
+@overload
+def get_chunker(
+    strategy: Literal["hierarchical"] = "hierarchical",
+    config: Optional[ChunkingConfig] = None,
+) -> HierarchicalChunker: ...
+
+
+@overload
+def get_chunker(
+    strategy: Literal["semantic"],
+    config: Optional[ChunkingConfig] = None,
+) -> SemanticChunker: ...
+
+
+@overload
+def get_chunker(
+    strategy: str,
+    config: Optional[ChunkingConfig] = None,
+) -> Union[HierarchicalChunker, SemanticChunker]: ...
+
+
+def get_chunker(
+    strategy: str = "hierarchical", config: Optional[ChunkingConfig] = None
+) -> Union[HierarchicalChunker, SemanticChunker]:
     """
     Factory function to get the appropriate chunker.
 

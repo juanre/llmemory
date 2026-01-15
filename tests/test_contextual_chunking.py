@@ -28,7 +28,7 @@ async def test_contextual_metadata_set_during_chunking(test_db_factory):
     )
 
     # Get chunks - they should still have contextualized flag
-    chunks = await memory.get_document_chunks(result.document.document_id)
+    chunks = await memory.get_document_chunks("test", result.document.document_id)
 
     # Assert metadata flag was set during chunking, not embedding
     assert len(chunks) > 0, "Should have chunks"
@@ -61,7 +61,7 @@ async def test_contextual_metadata_not_set_when_disabled(test_db_factory):
     )
 
     # Get chunks - they should NOT have contextualized flag
-    chunks = await memory.get_document_chunks(result.document.document_id)
+    chunks = await memory.get_document_chunks("test", result.document.document_id)
 
     assert len(chunks) > 0, "Should have chunks"
     assert (

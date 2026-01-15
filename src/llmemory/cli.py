@@ -91,7 +91,8 @@ async def _run_index(
     help="Show what would be indexed without actually indexing",
 )
 @click.option(
-    "--verbose", "-v",
+    "--verbose",
+    "-v",
     is_flag=True,
     help="Verbose output",
 )
@@ -110,10 +111,10 @@ def index(
         asyncio.run(_run_index(archive_path, entity, dry_run, verbose))
     except KeyboardInterrupt:
         click.echo("\nIndexing interrupted.")
-        raise SystemExit(130)
+        raise SystemExit(130) from None
     except Exception as e:
         click.secho(f"Error during indexing: {e}", fg="red", err=True)
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
 
 async def _run_search(
@@ -238,13 +239,15 @@ async def _run_search(
     help="Filter by date (to)",
 )
 @click.option(
-    "--limit", "-n",
+    "--limit",
+    "-n",
     type=int,
     default=10,
     help="Maximum number of results (default: 10)",
 )
 @click.option(
-    "--json-output", "-j",
+    "--json-output",
+    "-j",
     is_flag=True,
     help="Output results as JSON",
 )
@@ -270,12 +273,12 @@ def search(
         )
     except KeyboardInterrupt:
         click.echo("\nSearch interrupted.")
-        raise SystemExit(130)
+        raise SystemExit(130) from None
     except SystemExit:
         raise
     except Exception as e:
         click.secho(f"Error during search: {e}", fg="red", err=True)
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
 
 if __name__ == "__main__":

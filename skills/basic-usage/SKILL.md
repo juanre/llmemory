@@ -50,10 +50,10 @@ This skill documents core llmemory operations:
 - `search_with_routing()` - Search with automatic query routing (detects answerable queries)
 - `search_with_documents()` - Search and return results with document metadata
 - `list_documents()` - List documents with pagination
-- `get_document()` - Retrieve specific document
-- `get_document_chunks()` - Get chunks with pagination
-- `get_chunk_count()` - Get number of chunks for document
-- `delete_document()` / `delete_documents()` - Delete documents
+- `get_document()` - Retrieve a document (owner-scoped)
+- `get_document_chunks()` - Get chunks with pagination (owner-scoped)
+- `get_chunk_count()` - Get number of chunks for a document (owner-scoped)
+- `delete_document()` / `delete_documents()` - Delete documents (owner-scoped)
 - `get_statistics()` - Get owner statistics
 - `db_manager` - Access underlying database manager
 - `initialize()` / `close()` - Lifecycle management
@@ -756,6 +756,7 @@ Retrieve a specific document with optional chunks.
 **Signature:**
 ```python
 async def get_document(
+    owner_id: str,
     document_id: Union[str, UUID],
     include_chunks: bool = False,
     include_embeddings: bool = False
@@ -763,6 +764,7 @@ async def get_document(
 ```
 
 **Parameters:**
+- `owner_id` (str, required): Owner/workspace identifier (required for access control)
 - `document_id` (str or UUID, required): Document identifier
 - `include_chunks` (bool, default: False): Include all chunks for this document
 - `include_embeddings` (bool, default: False): Include embeddings with chunks (requires `include_chunks=True`)
@@ -775,11 +777,13 @@ async def get_document(
 
 **Raises:**
 - `DocumentNotFoundError`: If document doesn't exist
+- `PermissionError`: If the document belongs to a different owner
 
 **Example:**
 ```python
 # Get document without chunks
 doc_info = await memory.get_document(
+    owner_id="workspace-1",
     document_id="uuid-here"
 )
 print(f"Document: {doc_info.document.document_name}")
@@ -787,6 +791,7 @@ print(f"Chunks: {doc_info.chunk_count}")
 
 # Get document with all chunks
 doc_with_chunks = await memory.get_document(
+    owner_id="workspace-1",
     document_id="uuid-here",
     include_chunks=True
 )
@@ -802,6 +807,7 @@ Get chunks for a specific document with pagination.
 **Signature:**
 ```python
 async def get_document_chunks(
+    owner_id: str,
     document_id: Union[str, UUID],
     limit: Optional[int] = None,
     offset: int = 0
@@ -809,6 +815,7 @@ async def get_document_chunks(
 ```
 
 **Parameters:**
+- `owner_id` (str, required): Owner/workspace identifier (required for access control)
 - `document_id` (str or UUID, required): Document identifier
 - `limit` (int, optional): Maximum number of chunks to return (None = all chunks)
 - `offset` (int, default: 0): Number of chunks to skip for pagination
@@ -818,12 +825,14 @@ async def get_document_chunks(
 
 **Raises:**
 - `DocumentNotFoundError`: If document doesn't exist
+- `PermissionError`: If the document belongs to a different owner
 - `ValidationError`: If limit or offset are negative
 
 **Example:**
 ```python
 # Get all chunks for a document
 chunks = await memory.get_document_chunks(
+    owner_id="workspace-1",
     document_id="uuid-here"
 )
 print(f"Total chunks: {len(chunks)}")
@@ -835,6 +844,7 @@ page_size = 10
 offset = 0
 while True:
     chunks = await memory.get_document_chunks(
+        owner_id="workspace-1",
         document_id="uuid-here",
         limit=page_size,
         offset=offset
@@ -862,11 +872,13 @@ Get the number of chunks for a document.
 **Signature:**
 ```python
 async def get_chunk_count(
+    owner_id: str,
     document_id: Union[str, UUID]
 ) -> int
 ```
 
 **Parameters:**
+- `owner_id` (str, required): Owner/workspace identifier (required for access control)
 - `document_id` (str or UUID, required): Document identifier
 
 **Returns:**
@@ -874,11 +886,12 @@ async def get_chunk_count(
 
 **Raises:**
 - `DocumentNotFoundError`: If document doesn't exist
+- `PermissionError`: If the document belongs to a different owner
 
 **Example:**
 ```python
 # Get chunk count
-count = await memory.get_chunk_count(document_id="uuid-here")
+count = await memory.get_chunk_count(owner_id="workspace-1", document_id="uuid-here")
 print(f"Document has {count} chunks")
 
 # Check if document needs re-chunking
@@ -901,20 +914,23 @@ Delete a single document and all its chunks.
 **Signature:**
 ```python
 async def delete_document(
+    owner_id: str,
     document_id: Union[UUID, str]
 ) -> None
 ```
 
 **Parameters:**
+- `owner_id` (str, required): Owner/workspace identifier (required for access control)
 - `document_id` (UUID or str, required): Document ID to delete
 
 **Raises:**
 - `ResourceNotFoundError`: If document not found
+- `PermissionError`: If the document belongs to a different owner
 - `DatabaseError`: If deletion fails
 
 **Example:**
 ```python
-await memory.delete_document("uuid-here")
+await memory.delete_document(owner_id="workspace-1", document_id="uuid-here")
 ```
 
 ### delete_documents()
@@ -1351,6 +1367,7 @@ from uuid import UUID
 
 try:
     doc = await memory.get_document(
+        owner_id="workspace-1",
         document_id=UUID("00000000-0000-0000-0000-000000000000")
     )
 except DocumentNotFoundError as e:
@@ -1402,7 +1419,7 @@ from llmemory import PermissionError as LLMemoryPermissionError
 
 try:
     # Trying to access another owner's document
-    doc = await memory.get_document(document_id="...")
+    doc = await memory.get_document(owner_id="workspace-1", document_id="...")
 except LLMemoryPermissionError as e:
     print(f"Permission denied: {e}")
 ```

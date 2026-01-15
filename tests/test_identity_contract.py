@@ -204,6 +204,7 @@ class TestProcessDocumentIdempotent:
 
         # Small delay to ensure different timestamp
         import asyncio
+
         await asyncio.sleep(0.1)
 
         # Re-index

@@ -220,7 +220,7 @@ class TestDocumentRetrievalAPI:
         doc_id = result.document.document_id
 
         # Retrieve the document
-        doc_with_chunks = await memory_library.get_document(doc_id)
+        doc_with_chunks = await memory_library.get_document("test_owner", doc_id)
 
         assert isinstance(doc_with_chunks, DocumentWithChunks)
         assert doc_with_chunks.document.document_id == doc_id
@@ -258,7 +258,7 @@ class TestDocumentRetrievalAPI:
 
         # Retrieve with chunks
         doc_with_chunks = await memory_library.get_document(
-            result.document.document_id, include_chunks=True
+            "test_owner", result.document.document_id, include_chunks=True
         )
 
         assert doc_with_chunks.chunks is not None
@@ -278,7 +278,7 @@ class TestDocumentRetrievalAPI:
         fake_id = "00000000-0000-0000-0000-000000000000"
 
         with pytest.raises(DocumentNotFoundError):
-            await memory_library.get_document(fake_id)
+            await memory_library.get_document("test_owner", fake_id)
 
     @pytest.mark.asyncio
     async def test_get_document_string_uuid(self, memory_library: LLMemory):
@@ -293,7 +293,9 @@ class TestDocumentRetrievalAPI:
         )
 
         # Retrieve using string UUID
-        doc_with_chunks = await memory_library.get_document(str(result.document.document_id))
+        doc_with_chunks = await memory_library.get_document(
+            "test_owner", str(result.document.document_id)
+        )
 
         assert doc_with_chunks.document.document_id == result.document.document_id
 
@@ -483,7 +485,7 @@ class TestChunkManagementAPIs:
         doc_id = result.document.document_id
 
         # Get all chunks
-        chunks = await memory_library.get_document_chunks(doc_id)
+        chunks = await memory_library.get_document_chunks("test_owner", doc_id)
 
         assert len(chunks) > 0
         assert all(isinstance(chunk, DocumentChunk) for chunk in chunks)
@@ -509,14 +511,14 @@ class TestChunkManagementAPIs:
 
         # Get first 2 chunks
         chunks_page1 = await memory_library.get_document_chunks(
-            result.document.document_id, limit=2, offset=0
+            "test_owner", result.document.document_id, limit=2, offset=0
         )
 
         assert len(chunks_page1) == 2
 
         # Get next 2 chunks
         chunks_page2 = await memory_library.get_document_chunks(
-            result.document.document_id, limit=2, offset=2
+            "test_owner", result.document.document_id, limit=2, offset=2
         )
 
         assert len(chunks_page2) <= 2
@@ -541,7 +543,7 @@ class TestChunkManagementAPIs:
         )
 
         # Get chunk count
-        count = await memory_library.get_chunk_count(result.document.document_id)
+        count = await memory_library.get_chunk_count("test_owner", result.document.document_id)
 
         assert isinstance(count, int)
         assert count > 0
@@ -555,10 +557,10 @@ class TestChunkManagementAPIs:
         fake_id = "00000000-0000-0000-0000-000000000000"
 
         with pytest.raises(DocumentNotFoundError):
-            await memory_library.get_document_chunks(fake_id)
+            await memory_library.get_document_chunks("test_owner", fake_id)
 
         with pytest.raises(DocumentNotFoundError):
-            await memory_library.get_chunk_count(fake_id)
+            await memory_library.get_chunk_count("test_owner", fake_id)
 
 
 class TestBatchOperations:
@@ -645,7 +647,7 @@ class TestBatchOperations:
         assert len(delete_result.deleted_document_ids) == 0
 
         # Verify document still exists
-        doc = await memory_library.get_document(result.document.document_id)
+        doc = await memory_library.get_document("owner1", result.document.document_id)
         assert doc.document.owner_id == "owner1"
 
     @pytest.mark.asyncio

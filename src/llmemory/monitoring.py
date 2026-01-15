@@ -10,18 +10,25 @@ for monitoring search performance and system health.
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any, Dict
-
-import psutil
+from typing import Any, Awaitable, Callable, Dict, Optional, cast
 
 logger = logging.getLogger(__name__)
+
+# psutil is optional: avoid import-time failure when monitoring is installed without system deps.
+psutil: Any
+try:  # pragma: no cover - availability depends on environment
+    import psutil as _psutil
+
+    psutil = _psutil
+    PSUTIL_AVAILABLE = True
+except Exception:  # pragma: no cover
+    psutil = None
+    PSUTIL_AVAILABLE = False
 
 # Try to import prometheus_client
 try:
     from prometheus_client import (
-        CONTENT_TYPE_LATEST,
         REGISTRY,
-        CollectorRegistry,
         Gauge,
         Info,
         generate_latest,
@@ -36,8 +43,16 @@ except ImportError:
 class SystemMetrics:
     """Collect system-level metrics for monitoring."""
 
-    def __init__(self):
-        if not PROMETHEUS_AVAILABLE:
+    def __init__(self) -> None:
+        self.cpu_usage: Any = None
+        self.memory_usage: Any = None
+        self.memory_percent: Any = None
+        self.disk_usage: Any = None
+        self.db_connections_active: Any = None
+        self.db_connections_idle: Any = None
+        self.app_info: Any = None
+
+        if not PROMETHEUS_AVAILABLE or not PSUTIL_AVAILABLE:
             return
 
         # System metrics
@@ -65,9 +80,9 @@ class SystemMetrics:
         # Set initial app info
         self.app_info.info({"version": "0.2.0", "environment": "production"})
 
-    async def collect_metrics(self, db_pool=None):
+    async def collect_metrics(self, db_pool: Any = None) -> None:
         """Collect current system metrics."""
-        if not PROMETHEUS_AVAILABLE:
+        if not PROMETHEUS_AVAILABLE or not PSUTIL_AVAILABLE:
             return
 
         try:
@@ -95,16 +110,19 @@ class SystemMetrics:
 class HealthCheck:
     """Health check implementation for llmemory."""
 
-    def __init__(self, db_manager=None):
+    def __init__(self, db_manager: Any = None) -> None:
         self.db_manager = db_manager
-        self.system_metrics = SystemMetrics() if PROMETHEUS_AVAILABLE else None
+        self.system_metrics: Optional[SystemMetrics] = (
+            SystemMetrics() if PROMETHEUS_AVAILABLE else None
+        )
 
     async def check_health(self) -> Dict[str, Any]:
         """Perform health checks and return status."""
-        health_status = {
+        checks: Dict[str, Any] = {}
+        health_status: Dict[str, Any] = {
             "status": "healthy",
             "timestamp": datetime.utcnow().isoformat(),
-            "checks": {},
+            "checks": checks,
         }
 
         # Database health check
@@ -123,42 +141,53 @@ class HealthCheck:
                     "message": str(e),
                 }
 
-        # Memory check
-        memory = psutil.virtual_memory()
-        if memory.percent > 90:
-            health_status["status"] = "unhealthy"
-            health_status["checks"]["memory"] = {
-                "status": "unhealthy",
-                "message": f"Memory usage critical: {memory.percent}%",
-            }
-        else:
-            health_status["checks"]["memory"] = {
-                "status": "healthy",
-                "message": f"Memory usage: {memory.percent}%",
-            }
+        if PSUTIL_AVAILABLE:
+            # Memory check
+            memory = psutil.virtual_memory()
+            if memory.percent > 90:
+                health_status["status"] = "unhealthy"
+                health_status["checks"]["memory"] = {
+                    "status": "unhealthy",
+                    "message": f"Memory usage critical: {memory.percent}%",
+                }
+            else:
+                health_status["checks"]["memory"] = {
+                    "status": "healthy",
+                    "message": f"Memory usage: {memory.percent}%",
+                }
 
-        # CPU check
-        cpu_percent = psutil.cpu_percent(interval=0.1)
-        if cpu_percent > 90:
-            health_status["status"] = "unhealthy"
-            health_status["checks"]["cpu"] = {
-                "status": "unhealthy",
-                "message": f"CPU usage critical: {cpu_percent}%",
-            }
+            # CPU check
+            cpu_percent = psutil.cpu_percent(interval=0.1)
+            if cpu_percent > 90:
+                health_status["status"] = "unhealthy"
+                health_status["checks"]["cpu"] = {
+                    "status": "unhealthy",
+                    "message": f"CPU usage critical: {cpu_percent}%",
+                }
+            else:
+                health_status["checks"]["cpu"] = {
+                    "status": "healthy",
+                    "message": f"CPU usage: {cpu_percent}%",
+                }
         else:
             health_status["checks"]["cpu"] = {
-                "status": "healthy",
-                "message": f"CPU usage: {cpu_percent}%",
+                "status": "unknown",
+                "message": "psutil not installed; CPU check unavailable",
+            }
+            health_status["checks"]["memory"] = {
+                "status": "unknown",
+                "message": "psutil not installed; memory check unavailable",
             }
 
         return health_status
 
     async def check_readiness(self) -> Dict[str, Any]:
         """Check if the service is ready to accept requests."""
-        readiness = {
+        checks: Dict[str, Any] = {}
+        readiness: Dict[str, Any] = {
             "ready": True,
             "timestamp": datetime.utcnow().isoformat(),
-            "checks": {},
+            "checks": checks,
         }
 
         # Check database readiness
@@ -179,11 +208,11 @@ class HealthCheck:
         return readiness
 
 
-def get_metrics_handler():
+def get_metrics_handler() -> Callable[[Any], Awaitable[Any]]:
     """Get a metrics handler for HTTP endpoints."""
     if not PROMETHEUS_AVAILABLE:
 
-        async def disabled_handler(request):
+        async def disabled_handler(request: Any) -> Dict[str, str]:
             return {
                 "error": "Metrics not available",
                 "message": "Install with: pip install llmemory[monitoring]",
@@ -191,16 +220,20 @@ def get_metrics_handler():
 
         return disabled_handler
 
-    async def metrics_handler(request):
+    async def metrics_handler(request: Any) -> str:
         """HTTP handler for /metrics endpoint."""
         metrics_data = generate_latest(REGISTRY)
-        return metrics_data.decode("utf-8")
+        return cast(bytes, metrics_data).decode("utf-8")
 
     return metrics_handler
 
 
 # Create a background agent for periodic metrics collection
-async def metrics_collection_loop(system_metrics: SystemMetrics, db_pool=None, interval: int = 30):
+async def metrics_collection_loop(
+    system_metrics: SystemMetrics,
+    db_pool: Any = None,
+    interval: int = 30,
+) -> None:
     """Background agent to collect system metrics periodically."""
     if not PROMETHEUS_AVAILABLE:
         return

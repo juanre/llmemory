@@ -9,7 +9,7 @@ The memory service provides reusable test fixtures that can be imported into you
 First, ensure you have the test dependencies installed:
 
 ```bash
-uv add "llmemory[test]"
+uv add llmemory pytest pytest-asyncio
 ```
 
 ### Basic Setup
@@ -194,17 +194,18 @@ For more examples, see the memory service test suite in the `tests/` directory.
 
 ## Test Status
 
-As of the latest version:
-- **135 tests passing** - All core functionality tests pass
-- **15 tests skipped** - Known pytest/asyncpg event loop conflicts in `test_search_quality.py` and `test_search_performance.py`
+Test results are **environment-dependent**:
 
-The skipped tests validate features that work perfectly in production:
-- Semantic/concept search with real documents
-- Multi-document search across topics
-- Search result relevance ranking
-- Performance metrics (< 100ms p95 latency)
-- Concurrent search handling
-- Search caching
+- Some tests and fixtures **skip automatically** when optional dependencies or credentials are missing (for example: `OPENAI_API_KEY`, `sentence-transformers`, or external corpora under `tests/res/`).
+- Some suites are intentionally marked `@pytest.mark.skip(...)` in-repo because they are performance/quality regression checks that require a specific environment and can be flaky in generic CI runners (for example: `tests/test_search_quality.py` and `tests/test_search_performance.py`).
+
+If you want to run everything locally, start with:
+
+```bash
+uv run pytest
+```
+
+Then, selectively enable the heavier suites by removing/adjusting the `skip` markers in the relevant test modules.
 
 ## Optional Dependencies
 

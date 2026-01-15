@@ -65,16 +65,16 @@ export LLMEMORY_OPENAI_API_KEY="sk-..." # Or use local embeddings
 
 ```bash
 # Run all tests
-pytest
+uv run pytest
 
 # Run with coverage
-pytest --cov=llmemory --cov-report=html
+uv run pytest --cov=llmemory --cov-report=html
 
 # Run specific test file
-pytest tests/test_search_quality.py
+uv run pytest tests/test_search_quality.py
 
 # Run tests in parallel
-pytest -n auto
+uv run pytest -n auto
 ```
 
 ### Code Style
@@ -89,22 +89,29 @@ We use several tools to maintain code quality:
 Run all checks:
 ```bash
 # Format code
-black src tests
+uv run black src tests
 
 # Sort imports
-isort src tests
+uv run isort src tests
 
 # Run linter
-ruff check src tests
+uv run ruff check src tests
 
 # Type checking
-mypy src
+uv run mypy src
 ```
 
 Or use pre-commit to run all checks:
 ```bash
-pre-commit run --all-files
+uv run pre-commit run --all-files
 ```
+
+### CI Policy
+
+This repository's GitHub Actions workflow is **lint-only**:
+
+- It gates on `black`, `isort`, `ruff`, and `mypy`
+- It does **not** run `pytest` in CI
 
 ## Pull Request Process
 

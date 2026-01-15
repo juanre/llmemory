@@ -71,10 +71,11 @@ docs = await memory.list_documents(
 )
 ```
 
-##### `async def get_document(...) -> DocumentWithChunks`
+##### `async def get_document(owner_id: str, document_id: Union[str, UUID], ...) -> DocumentWithChunks`
 Get a complete document with all its chunks.
 
 **Parameters:**
+- `owner_id` (str): Workspace identifier
 - `document_id` (str): Document UUID
 - `include_chunks` (bool, optional)
 - `include_embeddings` (bool, optional)
@@ -131,17 +132,17 @@ results = await memory.search_with_documents(
 )
 ```
 
-##### `async def delete_document(document_id: Union[str, UUID]) -> None`
+##### `async def delete_document(owner_id: str, document_id: Union[str, UUID]) -> None`
 Delete a single document and its chunks.
 
 **Parameters:**
 - `owner_id` (str): Workspace identifier
 - `document_id` (str): Document UUID
 
-**Returns:** `DeleteResult` with deletion details
+**Returns:** `None`
 
 ```python
-result = await memory.delete_document(
+await memory.delete_document(
     owner_id="workspace-123",
     document_id="550e8400-e29b-41d4-a716-446655440000"
 )

@@ -14,6 +14,7 @@ llmemory provides intelligent document processing with:
 - **Multi-language support** with automatic language detection and normalization
 - **Hierarchical chunking & summaries** with document-type specific configurations and optional auto-summaries
 - **Production-ready monitoring** with Prometheus metrics and searchable diagnostics
+- **Reliable async Postgres foundation** via [pgdbm](https://juanreyero.com/open/pgdbm/) (connection pooling, migrations, schema support)
 
 ## What's New
 

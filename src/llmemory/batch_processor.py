@@ -15,7 +15,8 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Protocol, Sequence, Tuple
+from uuid import UUID
 
 from .embeddings import EmbeddingGenerator
 from .models import DocumentChunk, EmbeddingJob, EmbeddingStatus
@@ -34,7 +35,7 @@ class RateLimiter:
     _last_update: float = field(init=False)
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self._tokens = float(self.max_rpm)
         self._last_update = time.time()
 
@@ -106,7 +107,7 @@ class BatchEmbeddingProcessor:
         max_rpm: int = 3000,
         max_retries: int = 3,
         retry_delay: float = 1.0,
-    ):
+    ) -> None:
         """
         Initialize batch processor.
 
@@ -125,7 +126,9 @@ class BatchEmbeddingProcessor:
         self.progress = BatchProgress()
 
     async def process_chunks(
-        self, chunks: List[DocumentChunk], update_callback: Optional[callable] = None
+        self,
+        chunks: List[DocumentChunk],
+        update_callback: Optional[Callable[[BatchProgress], Awaitable[None]]] = None,
     ) -> Tuple[List[DocumentChunk], List[Dict[str, Any]]]:
         """
         Process chunks in batches.
@@ -160,7 +163,7 @@ class BatchEmbeddingProcessor:
             self.progress.failed_chunks += len(failures)
 
             # Callback for progress updates
-            if update_callback:
+            if update_callback is not None:
                 await update_callback(self.progress)
 
             # Log progress
@@ -199,10 +202,10 @@ class BatchEmbeddingProcessor:
             try:
                 # Generate embeddings
                 embeddings = await self.embedding_generator.generate_embeddings(texts)
-
-                # Update chunks with embeddings
-                for chunk, embedding in zip(batch, embeddings):
-                    chunk.embedding = embedding
+                if len(embeddings) != len(batch):
+                    raise RuntimeError(
+                        f"Embedding provider returned {len(embeddings)} embeddings for {len(batch)} chunks"
+                    )
 
                 return batch, []
 
@@ -231,9 +234,9 @@ class BatchEmbeddingProcessor:
     async def process_embedding_jobs(
         self,
         jobs: List[EmbeddingJob],
-        get_chunk_content: callable,
-        update_chunk_embedding: callable,
-        update_job_status: callable,
+        get_chunk_content: "GetChunkContent",
+        update_chunk_embedding: "UpdateChunkEmbedding",
+        update_job_status: "UpdateJobStatus",
     ) -> BatchProgress:
         """
         Process embedding jobs from the queue.
@@ -280,9 +283,9 @@ class BatchEmbeddingProcessor:
                 embeddings = await self.embedding_generator.generate_embeddings(texts)
 
                 # Update chunks and jobs
-                for (job, _), embedding in zip(chunk_contents, embeddings):
+                for (job, _), embedding in zip(chunk_contents, embeddings, strict=True):
                     try:
-                        await update_chunk_embedding(job.chunk_id, embedding)
+                        await update_chunk_embedding(job.chunk_id, embedding, job.provider_id)
                         await update_job_status(job.queue_id, EmbeddingStatus.COMPLETED)
                         self.progress.processed_chunks += 1
 
@@ -321,7 +324,7 @@ class BackgroundEmbeddingProcessor:
         batch_processor: BatchEmbeddingProcessor,
         poll_interval: float = 30.0,
         batch_timeout: float = 60.0,
-    ):
+    ) -> None:
         """
         Initialize background processor.
 
@@ -334,15 +337,15 @@ class BackgroundEmbeddingProcessor:
         self.poll_interval = poll_interval
         self.batch_timeout = batch_timeout
         self._running = False
-        self._task: Optional[asyncio.Task] = None
+        self._task: Optional[asyncio.Task[None]] = None
 
     async def start(
         self,
-        get_pending_jobs: callable,
-        get_chunk_content: callable,
-        update_chunk_embedding: callable,
-        update_job_status: callable,
-    ):
+        get_pending_jobs: "GetPendingJobs",
+        get_chunk_content: "GetChunkContent",
+        update_chunk_embedding: "UpdateChunkEmbedding",
+        update_job_status: "UpdateJobStatus",
+    ) -> None:
         """Start background processing."""
         if self._running:
             logger.warning("Background processor already running")
@@ -359,7 +362,7 @@ class BackgroundEmbeddingProcessor:
         )
         logger.info("Background embedding processor started")
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop background processing."""
         self._running = False
         if self._task:
@@ -372,11 +375,11 @@ class BackgroundEmbeddingProcessor:
 
     async def _process_loop(
         self,
-        get_pending_jobs: callable,
-        get_chunk_content: callable,
-        update_chunk_embedding: callable,
-        update_job_status: callable,
-    ):
+        get_pending_jobs: "GetPendingJobs",
+        get_chunk_content: "GetChunkContent",
+        update_chunk_embedding: "UpdateChunkEmbedding",
+        update_job_status: "UpdateJobStatus",
+    ) -> None:
         """Main processing loop."""
         while self._running:
             try:
@@ -409,3 +412,26 @@ class BackgroundEmbeddingProcessor:
             except Exception as e:
                 logger.error(f"Error in background processing loop: {e}")
                 await asyncio.sleep(self.poll_interval)
+
+
+class GetPendingJobs(Protocol):
+    def __call__(self, *, limit: int) -> Awaitable[List[EmbeddingJob]]: ...
+
+
+class GetChunkContent(Protocol):
+    def __call__(self, chunk_id: UUID) -> Awaitable[str]: ...
+
+
+class UpdateChunkEmbedding(Protocol):
+    def __call__(
+        self, chunk_id: UUID, embedding: Sequence[float], provider_id: str
+    ) -> Awaitable[None]: ...
+
+
+class UpdateJobStatus(Protocol):
+    def __call__(
+        self,
+        queue_id: UUID,
+        status: EmbeddingStatus,
+        error_message: Optional[str] = None,
+    ) -> Awaitable[None]: ...

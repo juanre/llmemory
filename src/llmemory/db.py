@@ -6,6 +6,7 @@
 import hashlib
 import json
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -18,6 +19,14 @@ from pgdbm import (
 )
 
 logger = logging.getLogger(__name__)
+
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _validate_identifier(value: str, *, kind: str) -> str:
+    if not _IDENTIFIER_RE.match(value):
+        raise ValueError(f"Invalid SQL identifier for {kind}: {value!r}")
+    return value
 
 
 async def create_memory_db_manager(
@@ -42,6 +51,8 @@ async def create_memory_db_manager(
     Returns:
         Configured AsyncDatabaseManager instance
     """
+    _validate_identifier(schema, kind="schema")
+
     config = DatabaseConfig(
         connection_string=connection_string,
         schema=schema,
@@ -52,16 +63,20 @@ async def create_memory_db_manager(
         max_inactive_connection_lifetime=300,
         # Disable JIT for more predictable performance and keep public visible
         # for shared extensions like pgvector.
-        server_settings={"jit": "off", "search_path": f"{schema},public"},
+        server_settings={"jit": "off", "search_path": f'"{schema}",public'},
     )
 
     # Use monitored version if requested
+    db: AsyncDatabaseManager
     if enable_monitoring:
         db = MonitoredAsyncDatabaseManager(config)
     else:
         db = AsyncDatabaseManager(config)
 
     await db.connect()
+
+    # Ensure pgcrypto is available (used by migrations via gen_random_uuid()).
+    await _ensure_pgcrypto_extension(db)
 
     # Enable pgvector extension if requested
     if enable_pgvector:
@@ -88,6 +103,25 @@ async def _ensure_pgvector_extension(db: AsyncDatabaseManager) -> None:
         raise ValueError(
             f"pgvector extension not available or not working: {e}. "
             "Install pgvector extension: CREATE EXTENSION vector; "
+            "Ensure the extension is properly installed in PostgreSQL."
+        ) from e
+
+
+async def _ensure_pgcrypto_extension(db: AsyncDatabaseManager) -> None:
+    """Ensure pgcrypto extension is enabled (for gen_random_uuid())."""
+    try:
+        result = await db.fetch_value("SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto'")
+        if not result:
+            await db.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public")
+            logger.info("pgcrypto extension enabled successfully")
+
+        # Verify UUID generation works
+        await db.fetch_value("SELECT gen_random_uuid()")
+
+    except Exception as e:
+        raise ValueError(
+            f"pgcrypto extension not available or not working: {e}. "
+            "Install pgcrypto extension: CREATE EXTENSION pgcrypto; "
             "Ensure the extension is properly installed in PostgreSQL."
         ) from e
 
@@ -178,9 +212,12 @@ class MemoryDatabase:
             return
 
         schema = self.db.schema or "public"
+        _validate_identifier(schema, kind="schema")
         for row in providers:
-            table_name = row["table_name"]
+            table_name = str(row["table_name"])
+            _validate_identifier(table_name, kind="table")
             index_name = f"idx_{table_name}_embedding"
+            _validate_identifier(index_name, kind="index")
             alter_sql = (
                 f'ALTER INDEX IF EXISTS "{schema}"."{index_name}" '
                 f"SET (m = {int(self._hnsw_m)}, ef_construction = {int(self._hnsw_ef_construction)})"
@@ -221,14 +258,19 @@ class MemoryDatabase:
         For use with embedding provider tables that are created dynamically at runtime.
         Static tables should use {{tables.tablename}} template syntax instead.
         """
-        if self.db.schema and self.db.schema != "public":
-            return f'"{self.db.schema}"."{table_name}"'
+        _validate_identifier(table_name, kind="table")
+        schema = self.db.schema
+        if schema and schema != "public":
+            _validate_identifier(schema, kind="schema")
+            return f'"{schema}"."{table_name}"'
         return f'"{table_name}"'
 
     async def apply_migrations(self) -> Dict[str, Any]:
         """Apply database migrations."""
         if not self._initialized:
             await self.initialize()
+        if self.migration_manager is None:
+            raise RuntimeError("Migration manager not initialized")
         return await self.migration_manager.apply_pending_migrations()
 
     async def insert_chunk(
@@ -286,7 +328,9 @@ class MemoryDatabase:
                     returned_chunk_id, embedding, provider_id, conn=conn
                 )
 
-        return returned_chunk_id
+        if returned_chunk_id is None:
+            raise RuntimeError("Failed to insert chunk")
+        return str(returned_chunk_id)
 
     async def insert_chunk_embedding(
         self,
@@ -408,7 +452,7 @@ class MemoryDatabase:
 
         # Convert embedding list to PostgreSQL vector string format
         embedding_str = f"[{','.join(str(x) for x in query_embedding)}]"
-        params = [embedding_str, owner_id]
+        params: List[Any] = [embedding_str, owner_id]
         param_count = 3
 
         # Add optional filters
@@ -495,7 +539,7 @@ class MemoryDatabase:
         """
         ]
 
-        params = [query_text, owner_id]
+        params: List[Any] = [query_text, owner_id]
         param_count = 3
 
         if metadata_filter:
@@ -538,12 +582,12 @@ class MemoryDatabase:
         k = 60  # RRF constant
 
         # Store results and scores separately
-        chunk_data = {}
-        rrf_scores = {}
+        chunk_data: Dict[str, Dict[str, Any]] = {}
+        rrf_scores: Dict[str, float] = {}
 
         # Process vector results
         for i, result in enumerate(vector_results):
-            chunk_id = result["chunk_id"]
+            chunk_id = str(result["chunk_id"])
             vector_score = alpha / (k + i + 1)
 
             # Store result data if not seen before
@@ -551,11 +595,11 @@ class MemoryDatabase:
                 chunk_data[chunk_id] = result.copy()
 
             # Update RRF score
-            rrf_scores[chunk_id] = rrf_scores.get(chunk_id, 0) + vector_score
+            rrf_scores[chunk_id] = rrf_scores.get(chunk_id, 0.0) + vector_score
 
         # Process text results
         for i, result in enumerate(text_results):
-            chunk_id = result["chunk_id"]
+            chunk_id = str(result["chunk_id"])
             text_score = (1 - alpha) / (k + i + 1)
 
             # Store result data if not seen before
@@ -563,7 +607,7 @@ class MemoryDatabase:
                 chunk_data[chunk_id] = result.copy()
 
             # Update RRF score
-            rrf_scores[chunk_id] = rrf_scores.get(chunk_id, 0) + text_score
+            rrf_scores[chunk_id] = rrf_scores.get(chunk_id, 0.0) + text_score
 
         # Add RRF scores to results and sort
         results_with_scores = []
@@ -773,7 +817,7 @@ class MemoryDatabase:
         table_name = provider_info["table_name"]
         qualified_table = self._qualify_table(table_name)
 
-        return await self.db.fetch_all(
+        rows = await self.db.fetch_all(
             f"""
             SELECT c.*
             FROM {{{{tables.document_chunks}}}} c
@@ -783,6 +827,13 @@ class MemoryDatabase:
             """,
             limit,
         )
+        normalized: List[Dict[str, Any]] = []
+        for row in rows:
+            data = dict(row)
+            if "chunk_id" in data and data["chunk_id"] is not None:
+                data["chunk_id"] = str(data["chunk_id"])
+            normalized.append(data)
+        return normalized
 
     async def test_vector_operations(self) -> bool:
         """

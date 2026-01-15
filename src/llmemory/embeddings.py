@@ -4,17 +4,19 @@
 """Batch embedding generation with rate limiting and retries."""
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
 from .embedding_providers import EmbeddingProvider
 
 logger = logging.getLogger(__name__)
 
+BatchUpdateCallback = Callable[[int, int], Awaitable[None]]
+
 
 class EmbeddingGenerator:
     """Handles batch embedding generation using embedding providers."""
 
-    def __init__(self, provider: EmbeddingProvider):
+    def __init__(self, provider: EmbeddingProvider) -> None:
         """
         Initialize embedding generator with a provider.
 
@@ -67,7 +69,9 @@ class EmbeddingGenerator:
         }
 
     async def process_batch(
-        self, chunks: List[Dict[str, Any]], update_callback: Optional[callable] = None
+        self,
+        chunks: List[Dict[str, Any]],
+        update_callback: Optional[BatchUpdateCallback] = None,
     ) -> Tuple[List[str], List[List[float]]]:
         """
         Process a batch of chunks and generate embeddings.
@@ -84,7 +88,7 @@ class EmbeddingGenerator:
 
         # Extract texts and chunk IDs
         chunk_ids = [str(chunk["chunk_id"]) for chunk in chunks]
-        texts = [chunk["content"] for chunk in chunks]
+        texts: List[str] = [str(chunk["content"]) for chunk in chunks]
 
         # Generate embeddings
         try:

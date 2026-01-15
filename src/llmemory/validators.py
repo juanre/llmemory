@@ -15,7 +15,7 @@ from .models import ChunkingStrategy, DocumentType, SearchType
 class InputValidator:
     """Validates input parameters for llmemory operations."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.config = get_config().validation
 
     def validate_owner_id(self, owner_id: Optional[str], field_name: str = "owner_id") -> str:
@@ -140,7 +140,7 @@ class InputValidator:
                     "document_type",
                     f"invalid value, must be one of {valid_types}",
                     document_type,
-                )
+                ) from None
 
         if isinstance(document_type, DocumentType):
             return document_type
@@ -162,7 +162,7 @@ class InputValidator:
                     "search_type",
                     f"invalid value, must be one of {valid_types}",
                     search_type,
-                )
+                ) from None
 
         if isinstance(search_type, SearchType):
             return search_type
@@ -184,7 +184,7 @@ class InputValidator:
                     "chunking_strategy",
                     f"invalid value, must be one of {valid_strategies}",
                     strategy,
-                )
+                ) from None
 
         if isinstance(strategy, ChunkingStrategy):
             return strategy
@@ -205,7 +205,7 @@ class InputValidator:
             )
 
         if isinstance(obj, dict):
-            for key, value in obj.items():
+            for _key, value in obj.items():
                 self._check_metadata_depth(value, current_depth + 1, max_depth)
         elif isinstance(obj, list):
             for item in obj:
@@ -213,12 +213,10 @@ class InputValidator:
 
     def _validate_metadata_keys(self, metadata: Dict[str, Any]) -> None:
         """Validate metadata keys to prevent injection attacks."""
-        import json
-
         # Allowed characters in keys: alphanumeric, underscore, hyphen, period
         key_pattern = re.compile(r"^[a-zA-Z0-9_.-]+$")
 
-        def check_keys(obj: Any, path: str = ""):
+        def check_keys(obj: Any, path: str = "") -> None:
             if isinstance(obj, dict):
                 for key, value in obj.items():
                     if not key:
@@ -307,7 +305,7 @@ class InputValidator:
 
     def validate_embedding(self, embedding: Any, expected_dim: Optional[int] = None) -> List[float]:
         """Validate embedding vector."""
-        if not isinstance(embedding, (list, tuple)):
+        if not isinstance(embedding, list | tuple):
             raise ValidationError("embedding", "must be a list or tuple", type(embedding).__name__)
 
         # Get expected dimension from default provider if not specified
@@ -330,7 +328,7 @@ class InputValidator:
         try:
             embedding_list = [float(x) for x in embedding]
         except (TypeError, ValueError) as e:
-            raise ValidationError("embedding", "all elements must be numeric", str(e))
+            raise ValidationError("embedding", "all elements must be numeric", str(e)) from e
 
         return embedding_list
 

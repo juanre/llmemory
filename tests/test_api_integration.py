@@ -42,7 +42,7 @@ class TestAPIIntegration:
         assert list_result.documents[0].document_id == doc_id
 
         # 3. Get the document with chunks
-        doc_with_chunks = await memory_library.get_document(doc_id, include_chunks=True)
+        doc_with_chunks = await memory_library.get_document(owner_id, doc_id, include_chunks=True)
         # Allow for deduplication - actual chunks may be less than initially created
         assert doc_with_chunks.chunk_count <= add_result.chunks_created
         assert doc_with_chunks.chunk_count > 0
@@ -71,7 +71,7 @@ class TestAPIIntegration:
 
         # 7. Verify deletion
         with pytest.raises(DocumentNotFoundError):
-            await memory_library.get_document(doc_id)
+            await memory_library.get_document(owner_id, doc_id)
 
         final_stats = await memory_library.get_statistics(owner_id)
         assert final_stats.document_count == 0
@@ -144,7 +144,9 @@ class TestAPIIntegration:
 
         # For each search result, get the full document with chunks
         for result in search_results.results[:2]:  # Test first 2 results
-            doc_with_chunks = await memory.get_document(result.document_id, include_chunks=True)
+            doc_with_chunks = await memory.get_document(
+                "test_workspace", result.document_id, include_chunks=True
+            )
 
             # Verify we can access both search result and full document data
             assert doc_with_chunks.document.document_name == result.document_name
@@ -245,7 +247,7 @@ class TestAPIIntegration:
 
         while True:
             page_chunks = await memory_library.get_document_chunks(
-                doc_id, limit=limit, offset=offset
+                owner_id, doc_id, limit=limit, offset=offset
             )
 
             if not page_chunks:
@@ -258,7 +260,7 @@ class TestAPIIntegration:
                 break
 
         # Verify we got all chunks
-        total = await memory_library.get_chunk_count(doc_id)
+        total = await memory_library.get_chunk_count(owner_id, doc_id)
         assert len(all_chunks) == total
 
         # Verify no duplicates
@@ -331,7 +333,7 @@ class TestErrorHandling:
             return await memory_library.list_documents(owner_id)
 
         async def get_doc(doc_id):
-            return await memory_library.get_document(doc_id)
+            return await memory_library.get_document(owner_id, doc_id)
 
         async def search_docs():
             return await memory_library.search_with_documents(
@@ -398,14 +400,14 @@ class TestPerformanceConsiderations:
 
         # Test retrieving large document
         doc_with_chunks = await memory_library.get_document(
-            add_result.document.document_id, include_chunks=True
+            owner_id, add_result.document.document_id, include_chunks=True
         )
 
         assert doc_with_chunks.chunk_count <= add_result.chunks_created
         assert doc_with_chunks.chunk_count > 0
 
         # Clean up
-        await memory_library.delete_document(add_result.document.document_id)
+        await memory_library.delete_document(owner_id, add_result.document.document_id)
 
     @pytest.mark.asyncio
     async def test_batch_operations_performance(self, memory_library: LLMemory):
