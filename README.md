@@ -1,4 +1,4 @@
-# llmemory
+# `llmemory`
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/pypi/pyversions/llmemory.svg)](https://pypi.org/project/llmemory/)
@@ -8,12 +8,12 @@ A high-performance document memory system with vector search capabilities for Py
 
 ## Overview
 
-llmemory provides intelligent document processing with:
+`llmemory` provides document search with:
 - **Complete Document Management API** – List, retrieve, search, and manage documents without direct database access
 - **State-of-the-art retrieval** using PostgreSQL with pgvector, hybrid BM25, multi-query expansion, and reranking
 - **Multi-language support** with automatic language detection and normalization
 - **Hierarchical chunking & summaries** with document-type specific configurations and optional auto-summaries
-- **Production-ready monitoring** with Prometheus metrics and searchable diagnostics
+- **Monitoring** with Prometheus metrics and search diagnostics
 - **Reliable async Postgres foundation** via [pgdbm](https://juanreyero.com/open/pgdbm/) (connection pooling, migrations, schema support)
 
 ## What's New
@@ -26,9 +26,9 @@ llmemory provides intelligent document processing with:
 - 📝 **Chunk summaries** – Capture short, metadata-aware synopses during ingestion and surface them with every search hit
 - 📈 **Richer diagnostics** – Search history now records query variants, latency breakdowns, rerank status, and summary usage for easy tuning
 
-## Why llmemory?
+## Why `llmemory`?
 
-Building applications with document search capabilities requires solving complex problems:
+Applications with document search capabilities require:
 
 - **Vector embeddings** for semantic understanding
 - **Efficient chunking** that preserves context
@@ -36,7 +36,7 @@ Building applications with document search capabilities requires solving complex
 - **Multi-tenant isolation** for SaaS applications
 - **Performance optimization** for large document sets
 
-llmemory provides a production-ready solution for these challenges.
+`llmemory` provides a solution.
 
 ## Key Features
 
@@ -121,7 +121,7 @@ pip install "llmemory[bench]"       # For benchmarking harness
 
 ## Claude Code Skills
 
-llmemory provides **expert guidance skills** for Claude Code that teach Claude how to work with the library effectively. When you use Claude Code with llmemory, these skills automatically activate to provide:
+`llmemory` provides **expert guidance skills** for Claude Code that teach Claude how to work with the library effectively. When you use Claude Code with `llmemory`, these skills automatically activate to provide:
 
 - ✅ Production-ready code examples
 - ✅ Best practices and patterns
